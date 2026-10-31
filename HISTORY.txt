@@ -12,6 +12,8 @@
 - 2026-01-08 ver.1.0.3 Fixed the main icon on the dialog not being displayed.
 - 2026-01-08 ver.1.0.4 Fixed "Open ReadMe".
 - 2026-01-15 ver.1.0.5 Added a randomization setting for typing intervals.
+- 2026-10-31 ver.1.1.0 Added the language selection (Simplified/Traditional Chinese). Improved for x64. Maintainer: YHuanheg.
+- 2026-10-31 ver.1.2.0 Added Unicode input for CJK/emoji, a worker thread, the About box, reset-to-defaults, DPI awareness and a redesigned UI. Maintained by YHuanheg.
 
 ## Japanese (日本語)
 
@@ -25,3 +27,10 @@
 - 2026-01-08 ver.1.0.3 ダイアログ上のメインアイコンが表示されていなかったのを修正。
 - 2026-01-08 ver.1.0.4 「ReadMeを開く」を修正。
 - 2026-01-15 ver.1.0.5 タイピング間隔のランダム化設定を追加。
+- 2026-10-31 ver.1.1.0 言語の選択 (簡体字/繁体字中国語) を追加。x64 向けに改善。メンテナ: YHuanheg。
+- 2026-10-31 ver.1.2.0 中国語・絵文字の Unicode 入力、ワーカースレッド、バージョン情報、設定の初期化、高 DPI 対応を追加。ダイアログを一新。メンテナー: YHuanheg
+
+## Chinese (简体中文)
+
+- 2026-10-31 ver.1.2.0 支持中文/emoji 的 Unicode 输入、后台输入线程、关于对话框、恢复默认设置、高 DPI 与新界面。维护者：YHuanheg。
+- 2026-10-31 ver.1.1.0 新增界面语言选择（简体/繁体中文）。针对 x64 改进。

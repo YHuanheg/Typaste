@@ -1,4 +1,6 @@
 *.autosave
+__pycache__/
+.dsh-ops/
 *.cmake
 *.dir
 *.exe
@@ -27,6 +29,7 @@ Release
 TMP1.$$$
 TMP2.$$$
 build
+build-*/
 ipch
 x64
 *-old

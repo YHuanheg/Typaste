@@ -1,8 +1,6 @@
-﻿(UTF-8, Japanese)
+(UTF-8, Japanese)
 
-# Typaste by 片山博文MZ
-
-## これは何？
+# Typaste
 
 Typing + Paste == Typaste.
 
@@ -14,15 +12,28 @@ Esc キーで入力を停止できます。
 
 ライセンス: MIT (フリーソフト)
 
+## 特徴
+
+- 中国語・日本語・絵文字などの文字も Unicode 入力 (SendInput + KEYEVENTF_UNICODE) で送信
+- 入力処理はワーカースレッドで実行され、ウィンドウは固まりません
+- タイプ遅延／開始遅延／ランダム間隔／ホットキー／IME 制御／音声に対応
+- 表示言語: English / 日本語 / 简体中文 / 繁體中文
+- 高 DPI 対応、バージョン情報、設定の初期化
+
 ## 対応環境
 
-Windows 2000/XP/Vista/7/10/11で動作します。
+Windows Vista/7/8.1/10/11 x64 (メイン)。Win32 (x86) ビルドも可能です。
+
+## 表示言語
+
+[設定変更...] の [言語] で選択できます。「システムに合わせる」では Windows の
+表示言語に従います。
+
+## クレジット
+
+原作者: 片山博文MZ (Katayama Hirofumi MZ)
+メンテナー: YHuanheg (https://github.com/YHuanheg)
 
 ## 警告
 
 このソフトを不正な目的で使用しないで下さい。悪用は違法です。
-
-## 連絡先
-
-片山博文MZ (katahiromz)
-katayama.hirofumi.mz@gmail.com

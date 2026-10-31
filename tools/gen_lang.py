@@ -1,0 +1,338 @@
+#!/usr/bin/env python3
+# gen_lang.py --- generate the localized resource files (lang/*.rc)
+#
+#   python tools/gen_lang.py
+#
+# Every dialog layout lives here once; only the text differs per language.
+# The output is UTF-16LE (no BOM), which is what rc.exe expects for these files.
+import os
+import sys
+
+VERSION = "1.2.0"
+VERSION_TUPLE = "1, 2, 0, 0"
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+TEMPLATE = r'''// Typaste localized resources for @@tag@@
+// GENERATED FILE --- edit tools/gen_lang.py instead of this file.
+
+#pragma code_page(65001) // UTF-8
+
+LANGUAGE @@rc_language@@
+
+//////////////////////////////////////////////////////////////////////////////
+// RT_DIALOG
+
+IDD_MAIN DIALOG 0, 0, 260, 170
+CAPTION "@@main_title@@"
+STYLE DS_CENTER | DS_MODALFRAME | WS_POPUPWINDOW | WS_CAPTION | WS_MINIMIZEBOX
+FONT 9, "@@font@@"
+{
+    ICON 0, ico1, 10, 10, 0, 0
+    LTEXT "@@main_title@@", txtTitle, 56, 9, 192, 11
+    LTEXT "@@subtitle@@", -1, 56, 22, 192, 10
+    LTEXT "@@desc@@", -1, 10, 42, 240, 64
+    LTEXT "", txtHotkey, 10, 110, 170, 10
+    LTEXT "", txtStatus, 10, 122, 170, 10
+    PUSHBUTTON "@@btn_exit@@", IDCANCEL, 188, 110, 62, 22
+    PUSHBUTTON "@@btn_readme@@", psh2, 10, 140, 76, 22
+    PUSHBUTTON "@@btn_settings@@", psh1, 92, 140, 76, 22
+    PUSHBUTTON "@@btn_about@@", btnAbout, 174, 140, 76, 22
+}
+
+IDD_SETTINGS DIALOG 0, 0, 260, 252
+CAPTION "@@settings_caption@@"
+STYLE DS_CENTER | DS_MODALFRAME | WS_POPUPWINDOW | WS_CAPTION
+FONT 9, "@@font@@"
+{
+    GROUPBOX "@@grp_input@@", grpInput, 7, 7, 246, 66
+    RTEXT "@@delay_type@@", -1, 14, 24, 74, 10
+    EDITTEXT edt1, 92, 22, 36, 14, ES_NUMBER | ES_RIGHT
+    CONTROL "", scr1, "msctls_updown32", UDS_NOTHOUSANDS | UDS_ARROWKEYS | UDS_AUTOBUDDY | UDS_ALIGNRIGHT | UDS_SETBUDDYINT, 128, 22, 12, 14
+    LTEXT "@@ms@@", -1, 142, 24, 30, 10
+    AUTOCHECKBOX "@@random@@", chx2, 172, 22, 76, 14
+    RTEXT "@@delay_start@@", -1, 14, 48, 74, 10
+    EDITTEXT edt3, 92, 46, 36, 14, ES_NUMBER | ES_RIGHT
+    CONTROL "", scr2, "msctls_updown32", UDS_NOTHOUSANDS | UDS_ARROWKEYS | UDS_AUTOBUDDY | UDS_ALIGNRIGHT | UDS_SETBUDDYINT, 128, 46, 12, 14
+    LTEXT "@@ms@@", -1, 142, 48, 30, 10
+
+    GROUPBOX "@@grp_keys@@", grpKeys, 7, 80, 246, 76
+    RTEXT "@@hotkey@@", -1, 14, 96, 74, 10
+    CONTROL "", edt2, "msctls_hotkey32", 0, 92, 93, 120, 14
+    LTEXT "@@sound@@", -1, 14, 118, 74, 10
+    COMBOBOX cmb1, 92, 116, 100, 200, CBS_NOINTEGRALHEIGHT | CBS_HASSTRINGS | CBS_AUTOHSCROLL | CBS_DROPDOWN | WS_VSCROLL | WS_TABSTOP
+    PUSHBUTTON "@@browse@@", psh2, 196, 116, 50, 14
+    PUSHBUTTON "@@play@@", psh3, 196, 134, 50, 14
+
+    GROUPBOX "@@grp_other@@", grpOther, 7, 163, 246, 58
+    AUTOCHECKBOX "@@ime@@", chx1, 14, 178, 140, 14
+    LTEXT "@@lbl_language@@", -1, 14, 198, 62, 10
+    COMBOBOX cmb2, 74, 196, 172, 120, CBS_DROPDOWNLIST | CBS_NOINTEGRALHEIGHT | WS_VSCROLL | WS_TABSTOP
+
+    PUSHBUTTON "@@btn_reset@@", btnReset, 7, 228, 74, 16
+    DEFPUSHBUTTON "@@btn_ok@@", IDOK, 104, 228, 68, 16
+    PUSHBUTTON "@@btn_cancel@@", IDCANCEL, 180, 228, 68, 16
+}
+
+IDD_ABOUT DIALOG 0, 0, 260, 124
+CAPTION "@@about_caption@@"
+STYLE DS_CENTER | DS_MODALFRAME | WS_POPUPWINDOW | WS_CAPTION
+FONT 9, "@@font@@"
+{
+    ICON 0, ico1, 12, 12, 0, 0
+    LTEXT "@@main_title@@", txtTitle, 58, 12, 190, 11
+    LTEXT "@@about_text@@", -1, 58, 26, 190, 62
+    DEFPUSHBUTTON "@@btn_ok@@", IDOK, 100, 96, 60, 16
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// RT_VERSION
+
+1 VERSIONINFO
+FILEVERSION     @@ver_tuple@@
+PRODUCTVERSION  @@ver_tuple@@
+FILEOS          0x40004
+FILETYPE        0x1
+FILESUBTYPE     0x0
+{
+    BLOCK "StringFileInfo"
+    {
+        BLOCK "@@lang_hex@@@@cp_hex@@"
+        {
+            VALUE "CompanyName", "YHuanheg\0"
+            VALUE "FileDescription", "Typaste\0"
+            VALUE "FileVersion", "@@version@@\0"
+            VALUE "LegalCopyright", "Copyright (C) 2019-2026 Katayama Hirofumi MZ, (C) 2026 YHuanheg\0"
+            VALUE "OriginalFilename", "Typaste.exe\0"
+            VALUE "ProductName", "Typaste\0"
+            VALUE "ProductVersion", "@@version@@\0"
+        }
+    }
+    BLOCK "VarFileInfo"
+    {
+        VALUE "Translation", @@langid_hex@@, 0x@@cp_hex@@
+    }
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// RT_STRING
+
+STRINGTABLE
+{
+    IDS_README, "@@s_readme@@"
+    IDS_DELETESETTINGS, "@@s_reset@@"
+    IDS_TITLETEXT, "@@main_title@@"
+    IDS_NONE, "@@s_none@@"
+    IDS_CHOOSESOUNDFILE, "@@s_choosesound@@"
+    IDS_SOUNDFILTER, "@@s_soundfilter@@"
+    IDS_FAILDIALOG, "@@s_faildialog@@"
+    IDS_FAILHOTKEY, "@@s_failhotkey@@"
+    IDS_AUTOLANG, "@@s_autolang@@"
+    IDS_HOTKEY_FMT, "@@s_hotkeyfmt@@"
+    IDS_STATUS_TYPING, "@@s_typing@@"
+    IDS_STATUS_READY, "@@s_ready@@"
+    IDS_TEXT_TOO_LONG, "@@s_toolong@@"
+    IDS_BUSY, "@@s_busy@@"
+    IDS_RESET_CONFIRM, "@@s_resetconfirm@@"
+}
+
+//////////////////////////////////////////////////////////////////////////////
+'''
+
+LANGS = [
+    {
+        "file": "lang/en_US.rc",
+        "tag": "en-US",
+        "language": "LANG_ENGLISH, SUBLANG_ENGLISH_US",
+        "langid_hex": "0x0409", "lang_hex": "0409", "cp_hex": "04B0",
+        "font": "Segoe UI",
+        "text": dict(
+            main_title="Typaste " + VERSION,
+            subtitle="Typing + Paste == Typaste",
+            desc="Typaste intercepts the pasting process by Ctrl+V while this window is "
+                 "displayed and emulates text input like typing. This allows you to break "
+                 "through the paste prohibition.\\n\\nPress the Esc key to stop typing.",
+            btn_readme="&Open ReadMe", btn_settings="&Settings...", btn_about="&About",
+            btn_exit="E&xit",
+            settings_caption="Typaste Settings",
+            grp_input="Typing", delay_type="&Delay to type:", delay_start="Delay to s&tart:",
+            ms="ms", random="&Random",
+            grp_keys="Hot-key and sound", hotkey="&HotKey:", sound="&Sound:",
+            browse="&Browse...", play="&Play",
+            grp_other="Other", ime="Control &IME On/Off", lbl_language="&Language:",
+            btn_reset="Reset", btn_ok="OK", btn_cancel="Cancel",
+            about_caption="About Typaste",
+            about_text="Original author: Katayama Hirofumi MZ\\n"
+                       "Maintainer: YHuanheg\\nLicense: MIT License\\n\\n"
+                       "https://github.com/YHuanheg/Typaste",
+            s_readme="\\\\README.txt",
+            s_reset="Do you want to reset the Typaste settings?",
+            s_none="(None)",
+            s_choosesound="Choose an audio file",
+            s_soundfilter="WAV Audio File (*.wav)|*.wav|All Files (*.*)|*.*|",
+            s_faildialog="Failed to create the dialog.",
+            s_failhotkey="Failed to register the hot-key.",
+            s_autolang="Follow the system",
+            s_hotkeyfmt="Hot-key: %s",
+            s_typing="Typing... press Esc to stop",
+            s_ready="Ready",
+            s_toolong="The clipboard text is too long to type (limit: %d characters).",
+            s_busy="Typaste is already typing.",
+            s_resetconfirm="Reset all settings to the defaults?",
+        ),
+    },
+    {
+        "file": "lang/ja_JP.rc",
+        "tag": "ja-JP",
+        "language": "LANG_JAPANESE, SUBLANG_DEFAULT",
+        "langid_hex": "0x0411", "lang_hex": "0411", "cp_hex": "04B0",
+        "font": "Meiryo UI",
+        "text": dict(
+            main_title="Typaste " + VERSION,
+            subtitle="Typing + Paste == Typaste",
+            desc="Typaste は、このウィンドウが表示されている間、Ctrl+V による貼り付け処理に"
+                 "割り込み、まるで打ち込むようにテキスト入力をエミュレートするプログラムです。"
+                 "これにより、貼り付け禁止を突破できます。\\n\\nEsc キーで入力を停止できます。",
+            btn_readme="ReadMe を開く(&O)", btn_settings="設定変更(&S)...",
+            btn_about="バージョン情報(&A)", btn_exit="終了(&X)",
+            settings_caption="Typaste 設定",
+            grp_input="タイピング", delay_type="タイプ遅延(&D):",
+            delay_start="開始遅延(&T):", ms="ミリ秒", random="ランダム(&R)",
+            grp_keys="ホットキーと音声", hotkey="ホットキー(&H):", sound="音声(&S):",
+            browse="参照(&B)...", play="再生(&P)",
+            grp_other="その他", ime="&IME のオン／オフを制御", lbl_language="言語(&L):",
+            btn_reset="初期化", btn_ok="OK", btn_cancel="キャンセル",
+            about_caption="Typaste について",
+            about_text="原作者: 片山博文MZ (Katayama Hirofumi MZ)\\n"
+                       "メンテナー: YHuanheg\\nライセンス: MIT License\\n\\n"
+                       "https://github.com/YHuanheg/Typaste",
+            s_readme="\\\\README_ja.txt",
+            s_reset="設定を初期化しますか？",
+            s_none="(なし)",
+            s_choosesound="音声ファイルを選んで下さい",
+            s_soundfilter="WAV音声ファイル (*.wav)|*.wav|すべてのファイル (*.*)|*.*|",
+            s_faildialog="ダイアログの作成に失敗しました。",
+            s_failhotkey="ホットキーの登録に失敗しました。",
+            s_autolang="システムに合わせる",
+            s_hotkeyfmt="ホットキー: %s",
+            s_typing="入力中... Esc キーで停止",
+            s_ready="待機中",
+            s_toolong="クリップボードのテキストが長すぎます (上限 %d 文字)。",
+            s_busy="すでに入力中です。",
+            s_resetconfirm="すべての設定を初期化しますか？",
+        ),
+    },
+    {
+        "file": "lang/zh_CN.rc",
+        "tag": "zh-CN",
+        "language": "LANG_CHINESE, SUBLANG_CHINESE_SIMPLIFIED",
+        "langid_hex": "0x0804", "lang_hex": "0804", "cp_hex": "04B0",
+        "font": "Microsoft YaHei UI",
+        "text": dict(
+            main_title="Typaste " + VERSION,
+            subtitle="Typing + Paste == Typaste",
+            desc="Typaste 会在本窗口显示期间拦截 Ctrl+V 粘贴，把剪贴板里的文本逐字符模拟成"
+                 "键盘输入打出来，从而绕过“禁止粘贴”的限制。\\n\\n按 Esc 键可停止输入。",
+            btn_readme="打开说明(&O)", btn_settings="设置(&S)...", btn_about="关于(&A)",
+            btn_exit="退出(&X)",
+            settings_caption="Typaste 设置",
+            grp_input="输入", delay_type="输入延迟(&D):", delay_start="开始前延迟(&T):",
+            ms="毫秒", random="随机间隔(&R)",
+            grp_keys="热键与提示音", hotkey="热键(&H):", sound="提示音(&S):",
+            browse="浏览(&B)...", play="试听(&P)",
+            grp_other="其他", ime="自动切换输入法状态(&I)", lbl_language="界面语言(&L):",
+            btn_reset="恢复默认", btn_ok="确定", btn_cancel="取消",
+            about_caption="关于 Typaste",
+            about_text="原作者：片山博文MZ（Katayama Hirofumi MZ）\\n"
+                       "现维护者：YHuanheg\\n许可协议：MIT License\\n\\n"
+                       "https://github.com/YHuanheg/Typaste",
+            s_readme="\\\\README_zh.txt",
+            s_reset="是否将 Typaste 的设置恢复为默认值？",
+            s_none="(无)",
+            s_choosesound="选择提示音文件",
+            s_soundfilter="WAV 音频文件 (*.wav)|*.wav|所有文件 (*.*)|*.*|",
+            s_faildialog="无法创建对话框。",
+            s_failhotkey="注册热键失败。",
+            s_autolang="跟随系统",
+            s_hotkeyfmt="热键：%s",
+            s_typing="正在输入… 按 Esc 停止",
+            s_ready="就绪",
+            s_toolong="剪贴板文本过长，无法输入（上限 %d 字符）。",
+            s_busy="正在输入中，请稍候。",
+            s_resetconfirm="确定要把所有设置恢复为默认值吗？",
+        ),
+    },
+    {
+        "file": "lang/zh_TW.rc",
+        "tag": "zh-TW",
+        "language": "LANG_CHINESE, SUBLANG_CHINESE_TRADITIONAL",
+        "langid_hex": "0x0404", "lang_hex": "0404", "cp_hex": "04B0",
+        "font": "Microsoft JhengHei UI",
+        "text": dict(
+            main_title="Typaste " + VERSION,
+            subtitle="Typing + Paste == Typaste",
+            desc="Typaste 會在本視窗顯示期間攔截 Ctrl+V 貼上，把剪貼簿的文字逐字模擬成"
+                 "鍵盤輸入打出，藉此繞過「禁止貼上」的限制。\\n\\n按 Esc 鍵可停止輸入。",
+            btn_readme="開啟說明(&O)", btn_settings="設定(&S)...", btn_about="關於(&A)",
+            btn_exit="結束(&X)",
+            settings_caption="Typaste 設定",
+            grp_input="輸入", delay_type="輸入延遲(&D):", delay_start="開始前延遲(&T):",
+            ms="毫秒", random="隨機間隔(&R)",
+            grp_keys="熱鍵與提示音", hotkey="熱鍵(&H):", sound="提示音(&S):",
+            browse="瀏覽(&B)...", play="試聽(&P)",
+            grp_other="其他", ime="自動切換輸入法狀態(&I)", lbl_language="介面語言(&L):",
+            btn_reset="恢復預設", btn_ok="確定", btn_cancel="取消",
+            about_caption="關於 Typaste",
+            about_text="原作者：片山博文MZ（Katayama Hirofumi MZ）\\n"
+                       "現維護者：YHuanheg\\n授權條款：MIT License\\n\\n"
+                       "https://github.com/YHuanheg/Typaste",
+            s_readme="\\\\README_zh_TW.txt",
+            s_reset="是否將 Typaste 的設定恢復為預設值？",
+            s_none="(無)",
+            s_choosesound="選擇提示音檔案",
+            s_soundfilter="WAV 音訊檔 (*.wav)|*.wav|所有檔案 (*.*)|*.*|",
+            s_faildialog="無法建立對話方塊。",
+            s_failhotkey="註冊熱鍵失敗。",
+            s_autolang="跟隨系統",
+            s_hotkeyfmt="熱鍵：%s",
+            s_typing="正在輸入… 按 Esc 停止",
+            s_ready="就緒",
+            s_toolong="剪貼簿文字過長，無法輸入（上限 %d 字元）。",
+            s_busy="正在輸入中，請稍候。",
+            s_resetconfirm="確定要把所有設定恢復為預設值嗎？",
+        ),
+    },
+]
+
+
+def render(lang):
+    values = dict(lang["text"])
+    values.update({
+        "tag": lang["tag"],
+        "rc_language": lang["language"],
+        "font": lang["font"],
+        "langid_hex": lang["langid_hex"],
+        "lang_hex": lang["lang_hex"],
+        "cp_hex": lang["cp_hex"],
+        "version": VERSION,
+        "ver_tuple": VERSION_TUPLE,
+    })
+    text = TEMPLATE
+    for key, value in values.items():
+        text = text.replace("@@" + key + "@@", value)
+    if "@@" in text:
+        raise RuntimeError("unreplaced placeholder in " + lang["file"])
+    return text
+
+
+def main():
+    for lang in LANGS:
+        path = os.path.join(ROOT, lang["file"])
+        data = render(lang).encode("utf-16-le")
+        with open(path, "wb") as fp:
+            fp.write(data)
+        print("generated %s (%d bytes)" % (lang["file"], len(data)))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

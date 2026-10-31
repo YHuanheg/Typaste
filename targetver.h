@@ -1,69 +1,39 @@
 // targetver.h --- target versioning header for Win             -*- C++ -*-
 //////////////////////////////////////////////////////////////////////////////
+//
+// This header defines the Win32API macros that target the version of Windows
+// that Typaste supports. Every value is guarded with #ifndef so that it can be
+// overridden from the command line, e.g. -DWINVER=0x0601.
+//
+// The x64 build targets Windows Vista or later. The legacy Win32 build keeps
+// the same minimum version.
+//
+// Old targets, for reference:
+//   Win95     WINVER 0x0400  _WIN32_IE 0x0300
+//   Win98     WINVER 0x0410  _WIN32_IE 0x0401
+//   WinNT4    WINVER 0x0400  _WIN32_IE 0x0200
+//   WinME     WINVER 0x0500  _WIN32_IE 0x0500
+//   Win2000   WINVER 0x0500  _WIN32_IE 0x0500
+//   WinXP     WINVER 0x0501  _WIN32_IE 0x0501
+//   WinVista  WINVER 0x0600  _WIN32_IE 0x0600
+//   Win7      WINVER 0x0601  _WIN32_IE 0x0601
+//
+//////////////////////////////////////////////////////////////////////////////
 
-// targetver.h is used to define the Win32API macros that target the 
-// version of the Win you wish to support.
-
-// For Win95
-//#define WINVER          0x0400
-//#define _WIN32_WINDOWS  0x0400
-//#define _WIN32_WINNT    0x0400
-//#define _WIN32_IE       0x0300
-
-// For Win98
-//#define WINVER          0x0410
-//#define _WIN32_WINDOWS  0x0410
-//#define _WIN32_WINNT    0x0410
-//#define _WIN32_IE       0x0401
-
-// For WinNT4
-//#define WINVER          0x0400
-//#define _WIN32_WINNT    0x0400
-//#define _WIN32_IE       0x0200
-//#define NTDDI_VERSION   0x05000000
-
-// For WinME
-//#define WINVER          0x0500
-//#define _WIN32_WINNT    0x0500
-//#define _WIN32_IE       0x0500
-
-// For Win2000
-#define WINVER          0x0500
-#define _WIN32_WINNT    0x0500
-#define _WIN32_IE       0x0500
-#define NTDDI_VERSION   0x05000000
-
-// For WinXP
-//#define WINVER          0x0501
-//#define _WIN32_WINNT    0x0501
-//#define _WIN32_IE       0x0501
-//#define NTDDI_VERSION   0x05010000
-
-// For WinVista
-//#define WINVER          0x0600
-//#define _WIN32_WINNT    0x0600
-//#define _WIN32_IE       0x0600
-//#define NTDDI_VERSION   0x06000000
-
-// For Win7
-//#define WINVER          0x0601
-//#define _WIN32_WINNT    0x0601
-//#define _WIN32_IE       0x0601
-//#define NTDDI_VERSION   0x06010000
-
-// For Win8.1
-//#define WINVER          0x0602
-//#define _WIN32_WINNT    0x0602
-//#define _WIN32_IE       0x0602
-//#define NTDDI_VERSION   0x06030000
-
-// For Win10
-//#define WINVER          0x0A00
-//#define _WIN32_WINNT    0x0A00
-//#define _WIN32_IE       0x0A00
-//#define NTDDI_VERSION   0x0A000000
+#ifndef WINVER
+    #define WINVER          0x0600      // Windows Vista
+#endif
+#ifndef _WIN32_WINNT
+    #define _WIN32_WINNT    0x0600      // Windows Vista
+#endif
+#ifndef _WIN32_IE
+    #define _WIN32_IE       0x0600
+#endif
+#ifndef NTDDI_VERSION
+    #define NTDDI_VERSION   0x06000000
+#endif
 
 // Users of Visual Studio 10+ can do this instead
-// #include "SDKDDKver.h"
+// #include "SDKDDKVer.h"
 
 //////////////////////////////////////////////////////////////////////////////

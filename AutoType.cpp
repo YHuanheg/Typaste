@@ -1,16 +1,22 @@
 // AutoType.cpp
-// Copyright (C) 2019-2024 Katayama Hirofumi MZ <katayama.hirofumi.mz@gmail.com>
+// Copyright (C) 2019-2026 Katayama Hirofumi MZ <katayama.hirofumi.mz@gmail.com>
+// Copyright (C) 2026 YHuanheg
 // This file is public domain software.
 #include "Typaste.hpp"
 #include <strsafe.h>
 
+// How long to wait for the user to release the modifier keys (in milliseconds)
+#define MODIFIER_RELEASE_TIMEOUT 5000
+
+// With a zero delay the target may merge the input events. Sleep once per this
+// many characters so that nothing is lost.
+#define ZERO_DELAY_BATCH 16
+
 // Emulate a key press or release
 static inline void MyKeybdEvent(WORD wVk, WORD wScan, DWORD dwFlags, ULONG_PTR dwExtra)
 {
-#if (WINVER < 0x0500) // Old tech
-    keybd_event(wVk, wScan, dwFlags, dwExtra);
-#else
     INPUT input;
+    ZeroMemory(&input, sizeof(input));
     input.type = INPUT_KEYBOARD;
     input.ki.wVk = wVk;
     input.ki.wScan = wScan;
@@ -18,7 +24,6 @@ static inline void MyKeybdEvent(WORD wVk, WORD wScan, DWORD dwFlags, ULONG_PTR d
     input.ki.time = 0;
     input.ki.dwExtraInfo = dwExtra;
     SendInput(1, &input, sizeof(input));
-#endif
 }
 
 void MySleep(DWORD delay, BOOL bRandom)
@@ -39,12 +44,47 @@ void MySleep(DWORD delay, BOOL bRandom)
 // Wait for release of modifier keys
 void WaitModifierRelease(DWORD dwDelay, BOOL bRandom)
 {
+    DWORD dwStart = GetTickCount();
+
     while (GetAsyncKeyState(VK_SHIFT) < 0 ||
            GetAsyncKeyState(VK_CONTROL) < 0 ||
            GetAsyncKeyState(VK_MENU) < 0)
     {
-        MySleep(dwDelay, bRandom);
+        // Do not hang forever when a key is stuck or held down on purpose
+        if (GetTickCount() - dwStart >= MODIFIER_RELEASE_TIMEOUT)
+            break;
+
+        MySleep(dwDelay ? dwDelay : 10, bRandom);
     }
+}
+
+// Send UTF-16 code units as Unicode input, without any keyboard layout involved.
+// This is the only reliable way to type characters such as CJK, emoji or symbols
+// that VkKeyScanEx cannot map.
+static void SendUnicodeText(LPCWSTR psz, int cch, DWORD dwDelay, BOOL bRandom)
+{
+    INPUT inputs[4];
+    ZeroMemory(inputs, sizeof(inputs));
+
+    int n = 0;
+    for (int i = 0; i < cch && n < 2; ++i)
+    {
+        inputs[n].type = INPUT_KEYBOARD;
+        inputs[n].ki.wScan = psz[i];
+        inputs[n].ki.dwFlags = KEYEVENTF_UNICODE;
+        ++n;
+    }
+
+    const int cDown = n;
+    for (int i = 0; i < cDown; ++i)
+    {
+        inputs[n] = inputs[i];
+        inputs[n].ki.dwFlags = KEYEVENTF_UNICODE | KEYEVENTF_KEYUP;
+        ++n;
+    }
+
+    SendInput((UINT)n, inputs, sizeof(INPUT));
+    MySleep(dwDelay, bRandom);
 }
 
 // Emulate key press and release
@@ -124,22 +164,14 @@ void AutoType(LPCTSTR psz, DWORD dwDelay, LPCTSTR pszSound, BOOL bRandom)
     // Remember the old keyboard layout
     HKL hOldKL = GetKeyboardLayout(0);
 
+    UINT nSent = 0;
+
     // The typing loop
     for (; *psz; ++psz)
     {
-#ifndef NDEBUG
-        // Calculate ratio and debug output
-        static DWORD s_check = MAXDWORD;
-        DWORD check = GetTickCount();
-        DWORD delta = check - s_check;
-        WCHAR text[64];
-        if (s_check != MAXDWORD)
-        {
-            StringCchPrintfW(text, _countof(text), L"delta:%lu\n", delta);
-            OutputDebugStringW(text);
-        }
-        s_check = check;
-#endif
+        // Stop when the user asked us to
+        if (g_bAbortTyping)
+            break;
 
         // Quit the loop if the user press Esc key
         if (GetAsyncKeyState(VK_ESCAPE) < 0)
@@ -175,7 +207,7 @@ void AutoType(LPCTSTR psz, DWORD dwDelay, LPCTSTR pszSound, BOOL bRandom)
 
         // Translate the character to a virtual key
         SHORT s = -1;
-        UINT iKL;
+        UINT iKL = 0;
         for (iKL = 0; iKL < chkl; ++iKL)
         {
             s = VkKeyScanEx(*psz, ahKLs[iKL]);
@@ -183,10 +215,24 @@ void AutoType(LPCTSTR psz, DWORD dwDelay, LPCTSTR pszSound, BOOL bRandom)
                 break; // Success!
         }
 
-        // Choose the prefer keyboard layout
-        HKL hKL;
-        if (s != -1)
+        if (s == -1)
         {
+            // The keyboard layouts cannot produce this character.
+            // Send it as Unicode input instead of WM_CHAR: that works for CJK,
+            // emoji (surrogate pairs) and any other symbol, and it is not
+            // blocked by UIPI.
+            int cch = 1;
+            if (IS_HIGH_SURROGATE(WORD(*psz)) && psz[1] && IS_LOW_SURROGATE(WORD(psz[1])))
+            {
+                cch = 2;
+                ++psz; // skip the low surrogate
+            }
+            SendUnicodeText(psz - (cch - 1), cch, dwDelay, bRandom);
+        }
+        else
+        {
+            // Choose the prefer keyboard layout
+            HKL hKL;
             for (INT k = 0; k < cMaxKL; ++k)
             {
                 hKL = GetKeyboardLayout(0);
@@ -196,26 +242,17 @@ void AutoType(LPCTSTR psz, DWORD dwDelay, LPCTSTR pszSound, BOOL bRandom)
                 // Switch the keyboard layout by pressing [Shift]+[Alt]
                 SwitchKL(dwDelay, bRandom);
             }
-        }
 
-        if (s == -1) // Unable to translate
-        {
-            // Send WM_CHAR message to the foreground focus control
-            HWND hwnd = GetForegroundWindow();
-            DWORD dwThreadId = GetWindowThreadProcessId(hwnd, NULL);
-            GUITHREADINFO info = { sizeof(info) };
-            GetGUIThreadInfo(dwThreadId, &info);
-            DWORD_PTR dwResult;
-            SendMessageTimeout(info.hwndFocus, WM_CHAR, *psz, 0, SMTO_ABORTIFHUNG, 2000, &dwResult);
-            MySleep(dwDelay, bRandom);
-        }
-        else
-        {
             BYTE vk = LOBYTE(s); // The translated virtual key code
             BYTE flags = HIBYTE(s); // The modifier flags
+
             // Emulate the key press and release
             EmulateKey(vk, flags, dwDelay, bRandom);
         }
+
+        // A zero delay may drop characters; give the target some breathing room
+        if (dwDelay == 0 && (++nSent % ZERO_DELAY_BATCH) == 0)
+            ::Sleep(1);
     }
 
     // Restore the keyboard layout
