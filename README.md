@@ -1,3 +1,5 @@
+
+[![build](https://github.com/YHuanheg/Typaste/actions/workflows/build.yml/badge.svg)](https://github.com/YHuanheg/Typaste/actions/workflows/build.yml)
 # ![](typaste.png "") Typaste
 
 Typing + Paste == Typaste.
