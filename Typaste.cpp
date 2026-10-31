@@ -5,6 +5,7 @@
 #include "Typaste.hpp"
 #include <vector>
 #include <algorithm>
+#include <cwctype>
 
 // The default delay value (in milliseconds)
 #define DEFAULT_DELAY 20
@@ -25,13 +26,22 @@
 #define APP_REGKEY TYP_REGKEY
 
 // The version of the settings layout
-#define SETTINGS_VERSION 2
+#define SETTINGS_VERSION 3
 
 // The maximum number of characters to type at once
 #define MAX_TYPING_CHARS 100000
 
-// The notification that the typing thread has finished
+// The notifications of this application
 #define WM_APP_TYPING_DONE (WM_APP + 1)
+#define WM_APP_TRAY        (WM_APP + 2)
+
+// The tray icon id
+#define TRAY_ICON_ID 1
+
+// WM_DPICHANGED needs Windows 8.1 headers; define it for older SDKs / targets
+#ifndef WM_DPICHANGED
+    #define WM_DPICHANGED 0x02E0
+#endif
 
 // The global variables
 HINSTANCE   g_hInst             = NULL;            // The instance handle of this application
@@ -51,6 +61,22 @@ volatile LONG g_bAbortTyping   = 0;                // Stop the typing thread now
 static volatile LONG s_bTyping = 0;                // Is the typing thread running?
 static HANDLE s_hTypingThread  = NULL;             // The typing thread
 static HANDLE s_hSingleInstance = NULL;            // The single instance mutex
+
+static NOTIFYICONDATA s_nid;                       // The tray icon
+static BOOL s_bTrayAdded = FALSE;                  // Is the tray icon added?
+
+static BOOL s_bOnlyWhitelist = FALSE;              // Only work in the whitelisted programs?
+static std::vector<tstring_t> s_whitelist;         // The program whitelist (lower case base names)
+static std::vector<tstring_t> s_editWhitelist;     // The working copy in the whitelist dialog
+
+static UINT s_nDpi = 96;                           // The DPI of the main window
+static HFONT s_hFontTitle = NULL;                  // The bold title font
+
+// Forward declarations
+BOOL Settings_Save(HWND hwnd);
+
+// The window property that holds the DPI of a dialog
+#define DPI_PROP TEXT("Typaste.Dpi")
 
 // Load a localized string from the resource of the current language
 static tstring_t LoadStr(UINT id)
@@ -75,6 +101,125 @@ static tstring_t FormatStr(const tstring_t& fmt, LPCTSTR pszArg)
         return szText;
     wsprintf(szText, fmt.c_str(), pszArg);
     return szText;
+}
+
+// Format a message that takes one integer argument ("%d")
+static tstring_t FormatInt(const tstring_t& fmt, int nValue)
+{
+    TCHAR szText[512] = TEXT("");
+    if (fmt.empty())
+        return szText;
+    wsprintf(szText, fmt.c_str(), nValue);
+    return szText;
+}
+
+// Get the DPI of a window (Windows 10+; falls back to the device caps)
+typedef UINT (WINAPI *PFN_GetDpiForWindow)(HWND);
+
+static UINT GetWindowDpi(HWND hwnd)
+{
+    static PFN_GetDpiForWindow s_pfnGetDpiForWindow = (PFN_GetDpiForWindow)
+        GetProcAddress(GetModuleHandleW(L"user32.dll"), "GetDpiForWindow");
+    if (s_pfnGetDpiForWindow)
+        return s_pfnGetDpiForWindow(hwnd);
+
+    UINT nDpi = 96;
+    if (HDC hdc = GetDC(hwnd))
+    {
+        nDpi = (UINT)GetDeviceCaps(hdc, LOGPIXELSX);
+        ReleaseDC(hwnd, hdc);
+    }
+    return nDpi ? nDpi : 96;
+}
+
+// Re-create the bold title font for the current DPI
+static void ResetTitleFont(void)
+{
+    if (s_hFontTitle)
+    {
+        DeleteObject(s_hFontTitle);
+        s_hFontTitle = NULL;
+    }
+}
+
+static void SetupTitleFont(HWND hwnd)
+{
+    if (!s_hFontTitle)
+    {
+        HFONT hFont = (HFONT)SendMessage(hwnd, WM_GETFONT, 0, 0);
+        LOGFONT lf;
+        ZeroMemory(&lf, sizeof(lf));
+        if (hFont && GetObject(hFont, sizeof(lf), &lf))
+        {
+            lf.lfHeight = lf.lfHeight * 14 / 10;
+            lf.lfWeight = FW_BOLD;
+            s_hFontTitle = CreateFontIndirect(&lf);
+        }
+    }
+    if (s_hFontTitle)
+        SendDlgItemMessage(hwnd, txtTitle, WM_SETFONT, (WPARAM)s_hFontTitle, TRUE);
+}
+
+// Scale the child controls and their fonts when the DPI changes
+static void ScaleChildrenForDpi(HWND hwnd, UINT nOldDpi, UINT nNewDpi)
+{
+    if (!nOldDpi || !nNewDpi || nOldDpi == nNewDpi)
+        return;
+
+    const double k = (double)nNewDpi / (double)nOldDpi;
+
+    for (HWND hChild = GetWindow(hwnd, GW_CHILD); hChild; hChild = GetWindow(hChild, GW_HWNDNEXT))
+    {
+        RECT rc;
+        GetWindowRect(hChild, &rc);
+        MapWindowPoints(NULL, hwnd, (LPPOINT)&rc, 2);
+
+        const int x = (int)(rc.left * k + 0.5);
+        const int y = (int)(rc.top * k + 0.5);
+        const int cx = (int)((rc.right - rc.left) * k + 0.5);
+        const int cy = (int)((rc.bottom - rc.top) * k + 0.5);
+        SetWindowPos(hChild, NULL, x, y, cx, cy, SWP_NOZORDER | SWP_NOACTIVATE);
+
+        HFONT hFont = (HFONT)SendMessage(hChild, WM_GETFONT, 0, 0);
+        LOGFONT lf;
+        ZeroMemory(&lf, sizeof(lf));
+        if (hFont && GetObject(hFont, sizeof(lf), &lf) && lf.lfHeight)
+        {
+            lf.lfHeight = (LONG)(lf.lfHeight * k);
+            lf.lfWidth = (LONG)(lf.lfWidth * k);
+            if (HFONT hNewFont = CreateFontIndirect(&lf))
+                SendMessage(hChild, WM_SETFONT, (WPARAM)hNewFont, TRUE);
+        }
+    }
+
+    // The title font has to be rebuilt for the new DPI
+    ResetTitleFont();
+    SetupTitleFont(hwnd);
+}
+
+// Remember the DPI of a dialog so that WM_DPICHANGED can compute the scale
+static void InitDpiTracking(HWND hwnd)
+{
+    SetProp(hwnd, DPI_PROP, (HANDLE)(UINT_PTR)GetWindowDpi(hwnd));
+}
+
+// Handle WM_DPICHANGED: resize the dialog, scale the children and the fonts
+static BOOL HandleDpiChanged(HWND hwnd, WPARAM wParam, LPARAM lParam)
+{
+    const UINT nNewDpi = HIWORD(wParam);
+    const RECT *prc = (const RECT *)lParam;
+    const UINT nOldDpi = (UINT)(UINT_PTR)GetProp(hwnd, DPI_PROP);
+
+    if (prc)
+    {
+        SetWindowPos(hwnd, NULL, prc->left, prc->top,
+                     prc->right - prc->left, prc->bottom - prc->top,
+                     SWP_NOZORDER | SWP_NOACTIVATE);
+    }
+
+    ScaleChildrenForDpi(hwnd, nOldDpi ? nOldDpi : nNewDpi, nNewDpi);
+    SetProp(hwnd, DPI_PROP, (HANDLE)(UINT_PTR)nNewDpi);
+    return TRUE;
 }
 
 // Build a readable hot-key name like "Ctrl + V"
@@ -105,27 +250,6 @@ static tstring_t FormatHotKey(WORD wHotKey)
 
     str += szName;
     return str;
-}
-
-// A bigger, bold font for the dialog titles
-static HFONT s_hFontTitle = NULL;
-
-static void SetupTitleFont(HWND hwnd)
-{
-    if (!s_hFontTitle)
-    {
-        HFONT hFont = (HFONT)SendMessage(hwnd, WM_GETFONT, 0, 0);
-        LOGFONT lf;
-        ZeroMemory(&lf, sizeof(lf));
-        if (hFont && GetObject(hFont, sizeof(lf), &lf))
-        {
-            lf.lfHeight = lf.lfHeight * 14 / 10;
-            lf.lfWeight = FW_BOLD;
-            s_hFontTitle = CreateFontIndirect(&lf);
-        }
-    }
-    if (s_hFontTitle)
-        SendDlgItemMessage(hwnd, txtTitle, WM_SETFONT, (WPARAM)s_hFontTitle, TRUE);
 }
 
 // Update the hot-key line of the main dialog
@@ -173,6 +297,201 @@ BOOL MyRegisterHotKey(HWND hwnd)
 
     return FALSE; // Failed
 }
+
+//////////////////////////////////////////////////////////////////////////////
+// The program whitelist
+
+// Get the lower-case base name of the process that owns the window
+static tstring_t GetWindowProcessName(HWND hwnd)
+{
+    tstring_t name;
+
+    DWORD dwPid = 0;
+    GetWindowThreadProcessId(hwnd, &dwPid);
+    if (!dwPid)
+        return name;
+
+    HANDLE hProcess = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, dwPid);
+    if (!hProcess)
+        return name;
+
+    WCHAR szPath[MAX_PATH * 2] = { 0 };
+    DWORD cch = _countof(szPath);
+    if (QueryFullProcessImageNameW(hProcess, 0, szPath, &cch))
+    {
+        const WCHAR *pszBase = PathFindFileNameW(szPath);
+        if (pszBase && *pszBase)
+        {
+            name = pszBase;
+            for (size_t i = 0; i < name.size(); ++i)
+                name[i] = (TCHAR)towlower(name[i]);
+        }
+    }
+
+    CloseHandle(hProcess);
+    return name;
+}
+
+// Normalize a user supplied program name ("C:\...\Foo.EXE" -> "foo.exe")
+static tstring_t NormalizeProgramName(const tstring_t& str)
+{
+    TCHAR szPath[MAX_PATH * 2];
+    lstrcpyn(szPath, str.c_str(), _countof(szPath));
+    StrTrim(szPath, TEXT(" \t\r\n"));
+
+    const TCHAR *pszBase = PathFindFileName(szPath);
+    tstring_t name = (pszBase && *pszBase) ? pszBase : szPath;
+    for (size_t i = 0; i < name.size(); ++i)
+        name[i] = (TCHAR)towlower(name[i]);
+    return name;
+}
+
+static BOOL WhitelistContains(const tstring_t& name)
+{
+    for (size_t i = 0; i < s_whitelist.size(); ++i)
+    {
+        if (lstrcmpi(s_whitelist[i].c_str(), name.c_str()) == 0)
+            return TRUE;
+    }
+    return FALSE;
+}
+
+// Should the current foreground window be handled by Typaste?
+static BOOL IsForegroundWhitelisted(void)
+{
+    if (!s_bOnlyWhitelist)
+        return TRUE;
+
+    HWND hwndTarget = GetForegroundWindow();
+    if (!hwndTarget)
+        return FALSE;
+
+    tstring_t name = GetWindowProcessName(hwndTarget);
+    if (name.empty())
+        return FALSE;
+
+    return WhitelistContains(name);
+}
+
+// Save the whitelist as a REG_MULTI_SZ value
+static void WhitelistSaveToRegistry(HKEY hKey)
+{
+    std::vector<TCHAR> buf;
+    for (size_t i = 0; i < s_whitelist.size(); ++i)
+    {
+        const tstring_t& name = s_whitelist[i];
+        buf.insert(buf.end(), name.begin(), name.end());
+        buf.push_back(0);
+    }
+    buf.push_back(0); // double NUL terminator
+
+    const DWORD cbData = (DWORD)(buf.size() * sizeof(TCHAR));
+    RegSetValueEx(hKey, TEXT("Whitelist"), 0, REG_MULTI_SZ, (const BYTE *)&buf[0], cbData);
+}
+
+// Load the whitelist from a REG_MULTI_SZ value
+static void WhitelistLoadFromRegistry(HKEY hKey)
+{
+    DWORD dwType = 0, cbData = 0;
+    if (RegQueryValueEx(hKey, TEXT("Whitelist"), NULL, &dwType, NULL, &cbData) != ERROR_SUCCESS)
+        return;
+    if (dwType != REG_MULTI_SZ || cbData < sizeof(TCHAR))
+        return;
+
+    std::vector<TCHAR> buf(cbData / sizeof(TCHAR) + 2, 0);
+    if (RegQueryValueEx(hKey, TEXT("Whitelist"), NULL, NULL, (BYTE *)&buf[0], &cbData) != ERROR_SUCCESS)
+        return;
+
+    s_whitelist.clear();
+    for (size_t i = 0; i < buf.size(); )
+    {
+        const TCHAR *psz = &buf[i];
+        if (!*psz)
+            break;
+        tstring_t name = NormalizeProgramName(psz);
+        if (!name.empty())
+            s_whitelist.push_back(name);
+        i += lstrlen(psz) + 1;
+    }
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// The tray icon
+
+static void AddTrayIcon(HWND hwnd)
+{
+    ZeroMemory(&s_nid, sizeof(s_nid));
+    s_nid.cbSize = sizeof(s_nid);
+    s_nid.hWnd = hwnd;
+    s_nid.uID = TRAY_ICON_ID;
+    s_nid.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
+    s_nid.uCallbackMessage = WM_APP_TRAY;
+    s_nid.hIcon = g_hIconSm ? g_hIconSm : g_hIcon;
+
+    tstring_t strTip = LoadStr(IDS_TRAY_TIP);
+    lstrcpyn(s_nid.szTip, strTip.c_str(), _countof(s_nid.szTip));
+
+    s_bTrayAdded = Shell_NotifyIcon(NIM_ADD, &s_nid) != FALSE;
+    if (s_bTrayAdded)
+    {
+        s_nid.uVersion = NOTIFYICON_VERSION_4;
+        Shell_NotifyIcon(NIM_SETVERSION, &s_nid);
+    }
+}
+
+static void RemoveTrayIcon(void)
+{
+    if (s_bTrayAdded)
+    {
+        Shell_NotifyIcon(NIM_DELETE, &s_nid);
+        s_bTrayAdded = FALSE;
+    }
+}
+
+static void ShowMainWindow(HWND hwnd)
+{
+    ShowWindow(hwnd, SW_SHOW);
+    ShowWindow(hwnd, SW_RESTORE);
+    SetForegroundWindow(hwnd);
+}
+
+// Handle the tray icon messages
+static void OnTrayMessage(HWND hwnd, LPARAM lParam)
+{
+    switch (LOWORD(lParam))
+    {
+    case WM_LBUTTONDBLCLK:
+        ShowMainWindow(hwnd);
+        break;
+
+    case WM_RBUTTONUP:
+    case WM_CONTEXTMENU:
+    {
+        POINT pt;
+        GetCursorPos(&pt);
+
+        HMENU hMenu = CreatePopupMenu();
+        if (!hMenu)
+            break;
+
+        AppendMenu(hMenu, MF_STRING, IDM_SHOW, LoadStr(IDS_TRAY_SHOW).c_str());
+        AppendMenu(hMenu, MF_STRING, IDM_SETTINGS, LoadStr(IDS_TRAY_SETTINGS).c_str());
+        AppendMenu(hMenu, MF_STRING, IDM_ABOUT, LoadStr(IDS_TRAY_ABOUT).c_str());
+        AppendMenu(hMenu, MF_SEPARATOR, 0, NULL);
+        AppendMenu(hMenu, MF_STRING, IDM_EXIT, LoadStr(IDS_TRAY_EXIT).c_str());
+
+        // Required so that the menu closes when the user clicks elsewhere
+        SetForegroundWindow(hwnd);
+        TrackPopupMenu(hMenu, TPM_RIGHTBUTTON, pt.x, pt.y, 0, hwnd, NULL);
+        PostMessage(hwnd, WM_NULL, 0, 0);
+        DestroyMenu(hMenu);
+        break;
+    }
+    }
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// The dialogs
 
 // Fill the language combo box
 static void Settings_InitLanguage(HWND hwnd)
@@ -228,11 +547,151 @@ INT_PTR CALLBACK AboutDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPa
     return FALSE;
 }
 
+// The program whitelist dialog IDD_WHITELIST
+
+static void Whitelist_FillList(HWND hwnd)
+{
+    HWND hList = GetDlgItem(hwnd, lstPrograms);
+    if (!hList)
+        return;
+
+    SendMessage(hList, LB_RESETCONTENT, 0, 0);
+    for (size_t i = 0; i < s_editWhitelist.size(); ++i)
+        SendMessage(hList, LB_ADDSTRING, 0, (LPARAM)s_editWhitelist[i].c_str());
+}
+
+static void Whitelist_AddName(HWND hwnd, const tstring_t& name)
+{
+    if (name.empty())
+        return;
+    for (size_t i = 0; i < s_editWhitelist.size(); ++i)
+    {
+        if (lstrcmpi(s_editWhitelist[i].c_str(), name.c_str()) == 0)
+            return; // already there
+    }
+    s_editWhitelist.push_back(name);
+    Whitelist_FillList(hwnd);
+}
+
+static void Whitelist_OnAdd(HWND hwnd)
+{
+    TCHAR szText[MAX_PATH * 2] = TEXT("");
+    GetDlgItemText(hwnd, edtName, szText, _countof(szText));
+    tstring_t name = NormalizeProgramName(szText);
+    if (!name.empty())
+    {
+        Whitelist_AddName(hwnd, name);
+        SetDlgItemText(hwnd, edtName, TEXT(""));
+    }
+}
+
+static void Whitelist_OnBrowse(HWND hwnd)
+{
+    tstring_t strFilter = LoadStr(IDS_WHITELIST_FILTER);
+    for (size_t i = 0; i < strFilter.size(); ++i)
+    {
+        if (strFilter[i] == TEXT('|'))
+            strFilter[i] = 0;
+    }
+    if (strFilter.empty() || strFilter[strFilter.size() - 1] != 0)
+        strFilter.push_back(0);
+
+    OPENFILENAME ofn;
+    TCHAR szPath[MAX_PATH] = TEXT("");
+    ZeroMemory(&ofn, sizeof(ofn));
+    ofn.lStructSize = sizeof(ofn);
+    ofn.lpstrFilter = strFilter.c_str();
+    ofn.lpstrFile = szPath;
+    ofn.nMaxFile = _countof(szPath);
+    ofn.Flags = OFN_EXPLORER | OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_HIDEREADONLY;
+    ofn.lpstrDefExt = TEXT("exe");
+    if (GetOpenFileName(&ofn))
+    {
+        tstring_t name = NormalizeProgramName(szPath);
+        Whitelist_AddName(hwnd, name);
+    }
+}
+
+static void Whitelist_OnRemove(HWND hwnd)
+{
+    HWND hList = GetDlgItem(hwnd, lstPrograms);
+    if (!hList)
+        return;
+
+    int nSel = (int)SendMessage(hList, LB_GETCURSEL, 0, 0);
+    if (nSel < 0 || (size_t)nSel >= s_editWhitelist.size())
+        return;
+
+    s_editWhitelist.erase(s_editWhitelist.begin() + nSel);
+    Whitelist_FillList(hwnd);
+}
+
+BOOL Whitelist_OnInitDialog(HWND hwnd, HWND hwndFocus, LPARAM lParam)
+{
+    UNREFERENCED_PARAMETER(hwndFocus);
+    UNREFERENCED_PARAMETER(lParam);
+
+    SendMessage(hwnd, WM_SETICON, ICON_BIG, (LPARAM)g_hIcon);
+    SendMessage(hwnd, WM_SETICON, ICON_SMALL, (LPARAM)g_hIconSm);
+
+    s_editWhitelist = s_whitelist;
+    CheckDlgButton(hwnd, chkWhitelist, s_bOnlyWhitelist ? BST_CHECKED : BST_UNCHECKED);
+    Whitelist_FillList(hwnd);
+    SetForegroundWindow(hwnd);
+    return TRUE;
+}
+
+void Whitelist_OnCommand(HWND hwnd, int id, HWND hwndCtl, UINT codeNotify)
+{
+    UNREFERENCED_PARAMETER(hwndCtl);
+    UNREFERENCED_PARAMETER(codeNotify);
+
+    switch (id)
+    {
+    case IDOK:
+        s_whitelist = s_editWhitelist;
+        s_bOnlyWhitelist = (IsDlgButtonChecked(hwnd, chkWhitelist) == BST_CHECKED);
+        Settings_Save(hwnd);
+        EndDialog(hwnd, IDOK);
+        break;
+    case IDCANCEL:
+        EndDialog(hwnd, IDCANCEL);
+        break;
+    case btnAdd:
+        Whitelist_OnAdd(hwnd);
+        break;
+    case btnBrowseExe:
+        Whitelist_OnBrowse(hwnd);
+        break;
+    case btnRemove:
+        Whitelist_OnRemove(hwnd);
+        break;
+    }
+}
+
+INT_PTR CALLBACK
+WhitelistDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+    switch (uMsg)
+    {
+        HANDLE_MSG(hwnd, WM_INITDIALOG, Whitelist_OnInitDialog);
+        HANDLE_MSG(hwnd, WM_COMMAND, Whitelist_OnCommand);
+    default:
+        break;
+    }
+    return 0;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// The settings dialog
+
 // WM_INITDIALOG
 BOOL Settings_OnInitDialog(HWND hwnd, HWND hwndFocus, LPARAM lParam)
 {
     UNREFERENCED_PARAMETER(hwndFocus);
     UNREFERENCED_PARAMETER(lParam);
+
+    InitDpiTracking(hwnd);
 
     // Set the main icon
     SendMessage(hwnd, WM_SETICON, ICON_BIG, (LPARAM)g_hIcon);
@@ -324,6 +783,8 @@ BOOL Settings_Load(HWND hwnd)
     g_wHotKey = DEFALUT_HOTKEY;
     g_bControlIME = TRUE;
     g_bRandom = FALSE;
+    s_bOnlyWhitelist = FALSE;
+    s_whitelist.clear();
 
     tstring_t strNone = LoadStr(IDS_NONE);
     if (strNone.empty())
@@ -389,6 +850,15 @@ BOOL Settings_Load(HWND hwnd)
         g_bRandom = !!dwData;
     }
 
+    cbData = sizeof(DWORD);
+    error = RegQueryValueEx(hKey, TEXT("OnlyWhitelist"), NULL, NULL, (LPBYTE)&dwData, &cbData);
+    if (!error)
+    {
+        s_bOnlyWhitelist = !!dwData;
+    }
+
+    WhitelistLoadFromRegistry(hKey);
+
     // Close the registry key
     RegCloseKey(hKey);
     return TRUE;
@@ -415,12 +885,15 @@ BOOL Settings_Save(HWND hwnd)
     RegSetValueEx(hAppKey, TEXT("DelayToStart"), 0, REG_DWORD, (const BYTE *)&g_dwDelayToStart, sizeof(DWORD));
     RegSetValueEx(hAppKey, TEXT("ControlIME"), 0, REG_DWORD, (const BYTE *)&g_bControlIME, sizeof(g_bControlIME));
     RegSetValueEx(hAppKey, TEXT("Random"), 0, REG_DWORD, (const BYTE *)&g_bRandom, sizeof(g_bRandom));
+    RegSetValueEx(hAppKey, TEXT("OnlyWhitelist"), 0, REG_DWORD, (const BYTE *)&s_bOnlyWhitelist, sizeof(s_bOnlyWhitelist));
 
     DWORD dwData = g_wHotKey;
     RegSetValueEx(hAppKey, TEXT("HotKey"), 0, REG_DWORD, (const BYTE *)&dwData, sizeof(dwData));
 
     DWORD cbData = (DWORD)((g_strSound.size() + 1) * sizeof(TCHAR));
     RegSetValueEx(hAppKey, TEXT("Sound"), 0, REG_SZ, (const BYTE *)g_strSound.c_str(), cbData);
+
+    WhitelistSaveToRegistry(hAppKey);
 
     // The language choice (a BCP-47 tag such as "zh-CN", or "auto")
     const wchar_t *pszLang = Lang_GetTag(Lang_GetSetting());
@@ -433,7 +906,7 @@ BOOL Settings_Save(HWND hwnd)
     return TRUE;
 }
 
-// IDD_SETTINGS WM_COMMAND psh5
+// IDD_SETTINGS WM_COMMAND btnReset
 void Settings_OnReset(HWND hwnd)
 {
     tstring_t strConfirm = LoadStr(IDS_RESET_CONFIRM);
@@ -554,6 +1027,9 @@ void Settings_OnCommand(HWND hwnd, int id, HWND hwndCtl, UINT codeNotify)
     case btnReset:
         Settings_OnReset(hwnd);
         break;
+    case btnWhitelist:
+        Lang_DialogBox(g_hInst, MAKEINTRESOURCE(IDD_WHITELIST), hwnd, WhitelistDialogProc, 0);
+        break;
     }
 }
 
@@ -561,6 +1037,9 @@ void Settings_OnCommand(HWND hwnd, int id, HWND hwndCtl, UINT codeNotify)
 INT_PTR CALLBACK
 SettingsDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
+    if (uMsg == WM_DPICHANGED)
+        return HandleDpiChanged(hwnd, wParam, lParam);
+
     switch (uMsg)
     {
         HANDLE_MSG(hwnd, WM_INITDIALOG, Settings_OnInitDialog);
@@ -659,6 +1138,9 @@ BOOL OnInitDialog(HWND hwnd, HWND hwndFocus, LPARAM lParam)
     // Mark this window so that the next instance can find it
     SetProp(hwnd, MAINWINDOW_PROP, (HANDLE)1);
 
+    // Track the DPI of this window
+    InitDpiTracking(hwnd);
+
     // Load settings
     Settings_Load(hwnd);
 
@@ -669,9 +1151,10 @@ BOOL OnInitDialog(HWND hwnd, HWND hwndFocus, LPARAM lParam)
     SendMessage(hwnd, WM_SETICON, ICON_BIG, (LPARAM)g_hIcon);
     SendMessage(hwnd, WM_SETICON, ICON_SMALL, (LPARAM)g_hIconSm);
     SendDlgItemMessage(hwnd, ico1, STM_SETIMAGE, IMAGE_ICON, (LPARAM)g_hIcon);
-
     SetupTitleFont(hwnd);
 
+    // Add the tray icon
+    AddTrayIcon(hwnd);
 
     // Show the current state
     UpdateHotKeyText(hwnd);
@@ -711,22 +1194,29 @@ void OnCommand(HWND hwnd, int id, HWND hwndCtl, UINT codeNotify)
     switch (id)
     {
     case IDOK:
-        g_nExitCode = id;
-        DestroyWindow(hwnd);
-        break;
     case IDCANCEL:
-        g_nExitCode = id;
+    case IDM_EXIT:
+        g_nExitCode = IDCANCEL;
         DestroyWindow(hwnd);
         break;
+
     case psh1:
-        g_nExitCode = id;
+    case IDM_SETTINGS:
+        g_nExitCode = psh1;
         DestroyWindow(hwnd);
         break;
+
     case psh2:
         OnOpenReadMe(hwnd);
         break;
-    case btnAbout:
+
+    case psh4:
+    case IDM_ABOUT:
         Lang_DialogBox(g_hInst, MAKEINTRESOURCE(IDD_ABOUT), hwnd, AboutDialogProc, 0);
+        break;
+
+    case IDM_SHOW:
+        ShowMainWindow(hwnd);
         break;
     }
 }
@@ -766,6 +1256,16 @@ void OnHotKey(HWND hwnd, int idHotKey, UINT fuModifiers, UINT vk)
         return;
     }
 
+    // Respect the program whitelist: outside of it, Ctrl+V works as usual
+    if (!IsForegroundWhitelisted())
+    {
+        // Just pass the original Ctrl+V through: no interception at all
+        UnregisterHotKey(hwnd, HOTKEY_ID);
+        CtrlV(g_dwDelayToType, g_bRandom);
+        MyRegisterHotKey(hwnd);
+        return;
+    }
+
     // Is the clipboard text available?
     if (!IsClipboardFormatAvailable(CF_GENERICTEXT) || !OpenClipboard(hwnd))
     {
@@ -799,9 +1299,8 @@ void OnHotKey(HWND hwnd, int idHotKey, UINT fuModifiers, UINT vk)
     size_t cch = _tcslen(pszClone);
     if (cch > MAX_TYPING_CHARS)
     {
-        TCHAR szText[512];
-        wsprintf(szText, LoadStr(IDS_TEXT_TOO_LONG).c_str(), (int)MAX_TYPING_CHARS);
-        MessageBox(hwnd, szText, NULL, MB_ICONWARNING);
+        tstring_t strTooLong = FormatInt(LoadStr(IDS_TEXT_TOO_LONG), MAX_TYPING_CHARS);
+        MessageBox(hwnd, strTooLong.c_str(), NULL, MB_ICONWARNING);
         free(pszClone);
         return;
     }
@@ -882,7 +1381,8 @@ void OnDestroy(HWND hwnd)
         s_hTypingThread = NULL;
     }
 
-    // Remove the hot-key and the window mark
+    // Remove the tray icon, the hot-key and the window mark
+    RemoveTrayIcon();
     UnregisterHotKey(hwnd, HOTKEY_ID);
     RemoveProp(hwnd, MAINWINDOW_PROP);
 
@@ -910,6 +1410,22 @@ MainDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         }
         UpdateStatusText(hwnd);
         return 0;
+    }
+
+    if (uMsg == WM_APP_TRAY)
+    {
+        OnTrayMessage(hwnd, lParam);
+        return 0;
+    }
+
+    if (uMsg == WM_DPICHANGED)
+        return HandleDpiChanged(hwnd, wParam, lParam);
+
+    // Minimize to the notification area instead of the task bar
+    if (uMsg == WM_SYSCOMMAND && (wParam & 0xFFF0) == SC_MINIMIZE)
+    {
+        ShowWindow(hwnd, SW_HIDE);
+        return TRUE;
     }
 
     switch (uMsg)
@@ -949,7 +1465,7 @@ WinMain(HINSTANCE   hInstance,
     {
         // Already running. Move focus to the existing window
         if (HWND hwndMain = FindMainWindow())
-            SetForegroundWindow(hwndMain);
+            ShowMainWindow(hwndMain);
         CloseHandle(s_hSingleInstance);
         return 0;
     }
@@ -998,6 +1514,8 @@ WinMain(HINSTANCE   hInstance,
         // Show settings dialog (as a modal dialog)
         Lang_DialogBox(hInstance, MAKEINTRESOURCE(IDD_SETTINGS), NULL, SettingsDialogProc, 0);
     }
+
+    RemoveTrayIcon();
 
     if (s_hSingleInstance)
     {

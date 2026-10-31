@@ -1,0 +1,46 @@
+name: build
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x64, Win32]
+
+    env:
+      CODESIGN_PFX_BASE64: ${{ secrets.CODESIGN_PFX_BASE64 }}
+      CODESIGN_PASSWORD: ${{ secrets.CODESIGN_PASSWORD }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure (CMake)
+        run: cmake -S . -B build-${{ matrix.arch }} -A ${{ matrix.arch }} -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build-${{ matrix.arch }} --config Release --parallel
+
+      - name: Verify the localized resources
+        shell: cmd
+        run: |
+          cl /nologo /utf-8 /EHsc /O1 tools\verify_lang.cpp /link /SUBSYSTEM:CONSOLE user32.lib
+          verify_lang.exe build-${{ matrix.arch }}\Release\Typaste.exe
+
+      - name: Sign (optional, needs CODESIGN_PFX_BASE64)
+        if: env.CODESIGN_PFX_BASE64 != ''
+        shell: pwsh
+        run: ./tools/sign.ps1 -File "build-${{ matrix.arch }}/Release/Typaste.exe"
+
+      - name: Upload the artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Typaste-${{ matrix.arch }}
+          path: build-${{ matrix.arch }}/Release/Typaste.exe
+          if-no-files-found: error

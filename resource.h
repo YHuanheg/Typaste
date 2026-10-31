@@ -6,6 +6,7 @@
 #define IDD_MAIN                            100
 #define IDD_SETTINGS                        101
 #define IDD_ABOUT                           102
+#define IDD_WHITELIST                       103
 
 #define IDI_MAINICON                        100
 
@@ -24,6 +25,17 @@
 #define IDS_TEXT_TOO_LONG                   112
 #define IDS_BUSY                            113
 #define IDS_RESET_CONFIRM                   114
+#define IDS_WHITELIST_FILTER                115
+#define IDS_TRAY_SHOW                       116
+#define IDS_TRAY_SETTINGS                   117
+#define IDS_TRAY_ABOUT                      118
+#define IDS_TRAY_EXIT                       119
+#define IDS_TRAY_TIP                        120
+
+#define IDM_SHOW                            200
+#define IDM_SETTINGS                        201
+#define IDM_ABOUT                           202
+#define IDM_EXIT                            203
 
 #define ID_EXIT                             100
 #define ID_PROPERTIES                       101
@@ -42,6 +54,13 @@
 #define grpInput                            2010
 #define grpKeys                             2011
 #define grpOther                            2012
+#define lstPrograms                                2013
+#define chkWhitelist                                2014
+#define edtName                                2015
+#define btnAdd                                2016
+#define btnBrowseExe                                2017
+#define btnRemove                                2018
+#define btnWhitelist                                2019
 
 #ifdef APSTUDIO_INVOKED
     #ifndef APSTUDIO_READONLY_SYMBOLS

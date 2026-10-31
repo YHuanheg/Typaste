@@ -21,6 +21,10 @@ Press the Esc key to stop typing.
 - Optional typing sound
 - Four UI languages: English, Japanese, Simplified Chinese, Traditional Chinese
 - High-DPI aware, modern dialog layout, About box, one-click reset to defaults
+- Tray icon with a context menu; the window minimizes to the notification area
+- **Program whitelist**: intercept Ctrl+V only in the programs you choose
+- Per-Monitor V2 DPI awareness (crisp on every monitor)
+- CI builds for x64 and Win32, optional Authenticode signing
 - Single instance, settings stored in `HKCU\SOFTWARE\Katayama Hirofumi MZ\Typaste`
 
 ## Download

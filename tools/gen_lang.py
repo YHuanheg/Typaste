@@ -8,8 +8,8 @@
 import os
 import sys
 
-VERSION = "1.2.0"
-VERSION_TUPLE = "1, 2, 0, 0"
+VERSION = "1.3.0"
+VERSION_TUPLE = "1, 3, 0, 0"
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 TEMPLATE = r'''// Typaste localized resources for @@tag@@
@@ -39,7 +39,7 @@ FONT 9, "@@font@@"
     PUSHBUTTON "@@btn_about@@", btnAbout, 174, 140, 76, 22
 }
 
-IDD_SETTINGS DIALOG 0, 0, 260, 252
+IDD_SETTINGS DIALOG 0, 0, 260, 276
 CAPTION "@@settings_caption@@"
 STYLE DS_CENTER | DS_MODALFRAME | WS_POPUPWINDOW | WS_CAPTION
 FONT 9, "@@font@@"
@@ -63,14 +63,30 @@ FONT 9, "@@font@@"
     PUSHBUTTON "@@browse@@", psh2, 196, 116, 50, 14
     PUSHBUTTON "@@play@@", psh3, 196, 134, 50, 14
 
-    GROUPBOX "@@grp_other@@", grpOther, 7, 163, 246, 58
+    GROUPBOX "@@grp_other@@", grpOther, 7, 163, 246, 78
     AUTOCHECKBOX "@@ime@@", chx1, 14, 178, 140, 14
     LTEXT "@@lbl_language@@", -1, 14, 198, 62, 10
     COMBOBOX cmb2, 74, 196, 172, 120, CBS_DROPDOWNLIST | CBS_NOINTEGRALHEIGHT | WS_VSCROLL | WS_TABSTOP
+    PUSHBUTTON "@@btn_whitelist@@", btnWhitelist, 14, 214, 130, 16
 
-    PUSHBUTTON "@@btn_reset@@", btnReset, 7, 228, 74, 16
-    DEFPUSHBUTTON "@@btn_ok@@", IDOK, 104, 228, 68, 16
-    PUSHBUTTON "@@btn_cancel@@", IDCANCEL, 180, 228, 68, 16
+    PUSHBUTTON "@@btn_reset@@", btnReset, 7, 252, 74, 16
+    DEFPUSHBUTTON "@@btn_ok@@", IDOK, 104, 252, 68, 16
+    PUSHBUTTON "@@btn_cancel@@", IDCANCEL, 180, 252, 68, 16
+}
+
+IDD_WHITELIST DIALOG 0, 0, 260, 196
+CAPTION "@@whitelist_caption@@"
+STYLE DS_CENTER | DS_MODALFRAME | WS_POPUPWINDOW | WS_CAPTION
+FONT 9, "@@font@@"
+{
+    AUTOCHECKBOX "@@whitelist_enable@@", chkWhitelist, 7, 7, 246, 14
+    LISTBOX lstPrograms, 7, 26, 246, 112, LBS_NOINTEGRALHEIGHT | LBS_SORT | WS_VSCROLL | WS_TABSTOP
+    EDITTEXT edtName, 7, 144, 120, 14, ES_AUTOHSCROLL
+    PUSHBUTTON "@@whitelist_add@@", btnAdd, 132, 144, 54, 14
+    PUSHBUTTON "@@whitelist_browse@@", btnBrowseExe, 190, 144, 63, 14
+    PUSHBUTTON "@@whitelist_remove@@", btnRemove, 7, 166, 60, 16
+    DEFPUSHBUTTON "@@btn_ok@@", IDOK, 120, 166, 60, 16
+    PUSHBUTTON "@@btn_cancel@@", IDCANCEL, 186, 166, 67, 16
 }
 
 IDD_ABOUT DIALOG 0, 0, 260, 124
@@ -133,6 +149,12 @@ STRINGTABLE
     IDS_TEXT_TOO_LONG, "@@s_toolong@@"
     IDS_BUSY, "@@s_busy@@"
     IDS_RESET_CONFIRM, "@@s_resetconfirm@@"
+    IDS_WHITELIST_FILTER, "@@s_whitelistfilter@@"
+    IDS_TRAY_SHOW, "@@s_trayshow@@"
+    IDS_TRAY_SETTINGS, "@@s_traysettings@@"
+    IDS_TRAY_ABOUT, "@@s_trayabout@@"
+    IDS_TRAY_EXIT, "@@s_trayexit@@"
+    IDS_TRAY_TIP, "@@main_title@@"
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -159,12 +181,16 @@ LANGS = [
             grp_keys="Hot-key and sound", hotkey="&HotKey:", sound="&Sound:",
             browse="&Browse...", play="&Play",
             grp_other="Other", ime="Control &IME On/Off", lbl_language="&Language:",
+            btn_whitelist="&Program whitelist...",
             btn_reset="Reset", btn_ok="OK", btn_cancel="Cancel",
+            whitelist_caption="Program whitelist",
+            whitelist_enable="Only intercept Ctrl+V in these programs (&W)",
+            whitelist_add="Add", whitelist_remove="Remove", whitelist_browse="B&rowse...",
             about_caption="About Typaste",
             about_text="Original author: Katayama Hirofumi MZ\\n"
                        "Maintainer: YHuanheg\\nLicense: MIT License\\n\\n"
                        "https://github.com/YHuanheg/Typaste",
-            s_readme="\\\\README.txt",
+            s_readme="\\README.txt",
             s_reset="Do you want to reset the Typaste settings?",
             s_none="(None)",
             s_choosesound="Choose an audio file",
@@ -178,6 +204,11 @@ LANGS = [
             s_toolong="The clipboard text is too long to type (limit: %d characters).",
             s_busy="Typaste is already typing.",
             s_resetconfirm="Reset all settings to the defaults?",
+            s_whitelistfilter="Programs (*.exe)|*.exe|All Files (*.*)|*.*|",
+            s_trayshow="Show window",
+            s_traysettings="Settings...",
+            s_trayabout="About",
+            s_trayexit="Exit",
         ),
     },
     {
@@ -200,12 +231,16 @@ LANGS = [
             grp_keys="ホットキーと音声", hotkey="ホットキー(&H):", sound="音声(&S):",
             browse="参照(&B)...", play="再生(&P)",
             grp_other="その他", ime="&IME のオン／オフを制御", lbl_language="言語(&L):",
+            btn_whitelist="プログラムの許可リスト(&P)...",
             btn_reset="初期化", btn_ok="OK", btn_cancel="キャンセル",
+            whitelist_caption="プログラムの許可リスト",
+            whitelist_enable="これらのプログラムでのみ Ctrl+V を横取りする(&W)",
+            whitelist_add="追加", whitelist_remove="削除", whitelist_browse="参照(&R)...",
             about_caption="Typaste について",
             about_text="原作者: 片山博文MZ (Katayama Hirofumi MZ)\\n"
                        "メンテナー: YHuanheg\\nライセンス: MIT License\\n\\n"
                        "https://github.com/YHuanheg/Typaste",
-            s_readme="\\\\README_ja.txt",
+            s_readme="\\README_ja.txt",
             s_reset="設定を初期化しますか？",
             s_none="(なし)",
             s_choosesound="音声ファイルを選んで下さい",
@@ -219,6 +254,11 @@ LANGS = [
             s_toolong="クリップボードのテキストが長すぎます (上限 %d 文字)。",
             s_busy="すでに入力中です。",
             s_resetconfirm="すべての設定を初期化しますか？",
+            s_whitelistfilter="プログラム (*.exe)|*.exe|すべてのファイル (*.*)|*.*|",
+            s_trayshow="ウィンドウを表示",
+            s_traysettings="設定変更...",
+            s_trayabout="バージョン情報",
+            s_trayexit="終了",
         ),
     },
     {
@@ -240,12 +280,16 @@ LANGS = [
             grp_keys="热键与提示音", hotkey="热键(&H):", sound="提示音(&S):",
             browse="浏览(&B)...", play="试听(&P)",
             grp_other="其他", ime="自动切换输入法状态(&I)", lbl_language="界面语言(&L):",
+            btn_whitelist="程序白名单(&P)...",
             btn_reset="恢复默认", btn_ok="确定", btn_cancel="取消",
+            whitelist_caption="程序白名单",
+            whitelist_enable="仅在这些程序中拦截 Ctrl+V(&W)",
+            whitelist_add="添加", whitelist_remove="移除", whitelist_browse="浏览(&R)...",
             about_caption="关于 Typaste",
             about_text="原作者：片山博文MZ（Katayama Hirofumi MZ）\\n"
                        "现维护者：YHuanheg\\n许可协议：MIT License\\n\\n"
                        "https://github.com/YHuanheg/Typaste",
-            s_readme="\\\\README_zh.txt",
+            s_readme="\\README_zh.txt",
             s_reset="是否将 Typaste 的设置恢复为默认值？",
             s_none="(无)",
             s_choosesound="选择提示音文件",
@@ -259,6 +303,11 @@ LANGS = [
             s_toolong="剪贴板文本过长，无法输入（上限 %d 字符）。",
             s_busy="正在输入中，请稍候。",
             s_resetconfirm="确定要把所有设置恢复为默认值吗？",
+            s_whitelistfilter="程序 (*.exe)|*.exe|所有文件 (*.*)|*.*|",
+            s_trayshow="显示主窗口",
+            s_traysettings="设置...",
+            s_trayabout="关于",
+            s_trayexit="退出",
         ),
     },
     {
@@ -280,12 +329,16 @@ LANGS = [
             grp_keys="熱鍵與提示音", hotkey="熱鍵(&H):", sound="提示音(&S):",
             browse="瀏覽(&B)...", play="試聽(&P)",
             grp_other="其他", ime="自動切換輸入法狀態(&I)", lbl_language="介面語言(&L):",
+            btn_whitelist="程式白名單(&P)...",
             btn_reset="恢復預設", btn_ok="確定", btn_cancel="取消",
+            whitelist_caption="程式白名單",
+            whitelist_enable="僅在這些程式中攔截 Ctrl+V(&W)",
+            whitelist_add="新增", whitelist_remove="移除", whitelist_browse="瀏覽(&R)...",
             about_caption="關於 Typaste",
             about_text="原作者：片山博文MZ（Katayama Hirofumi MZ）\\n"
                        "現維護者：YHuanheg\\n授權條款：MIT License\\n\\n"
                        "https://github.com/YHuanheg/Typaste",
-            s_readme="\\\\README_zh_TW.txt",
+            s_readme="\\README_zh_TW.txt",
             s_reset="是否將 Typaste 的設定恢復為預設值？",
             s_none="(無)",
             s_choosesound="選擇提示音檔案",
@@ -299,6 +352,11 @@ LANGS = [
             s_toolong="剪貼簿文字過長，無法輸入（上限 %d 字元）。",
             s_busy="正在輸入中，請稍候。",
             s_resetconfirm="確定要把所有設定恢復為預設值嗎？",
+            s_whitelistfilter="程式 (*.exe)|*.exe|所有檔案 (*.*)|*.*|",
+            s_trayshow="顯示主視窗",
+            s_traysettings="設定...",
+            s_trayabout="關於",
+            s_trayexit="結束",
         ),
     },
 ]

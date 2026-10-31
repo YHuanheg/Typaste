@@ -23,7 +23,19 @@
 | P2-6 | 注册表写入 SettingsVersion |
 | UI | 分组式设置对话框、粗体标题、关于对话框（原作者/维护者/许可/仓库）、主窗口热键与状态行 |
 
-后续仍可做：进程白名单（P1-6）、Per-Monitor V2、CI + 代码签名、Typaste.cpp 模块拆分（P2-7）、LANG_NEUTRAL 资源块（P2-4）、C++17（P2-8）。
+后续仍可做：Typaste.cpp 模块拆分（P2-7）、LANG_NEUTRAL 资源块（P2-4）、C++17（P2-8）。
+
+## 1.3.0 已实现
+
+| 项 | 说明 |
+| --- | --- |
+| P1-6 | 程序白名单：仅对列表内的进程拦截 Ctrl+V，列表外的 Ctrl+V 原样放行 |
+| Tray | 托盘图标 + 右键菜单（显示主窗口 / 设置 / 关于 / 退出），最小化收进托盘 |
+| P2-3 | Per-Monitor V2：manifest 声明 + WM_DPICHANGED 处理（缩放子控件与字体） |
+| CI | GitHub Actions：x64 + Win32 矩阵构建、资源校验、上传产物 |
+| 签名 | tools/sign.ps1 + CI 可选签名（CODESIGN_PFX_BASE64 / CODESIGN_PASSWORD） |
+
+剩余的 P2 建议（模块拆分、LANG_NEUTRAL、C++17、Per-Monitor 的手动布局微调）仍然成立。
 
 ---
 
