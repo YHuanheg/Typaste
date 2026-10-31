@@ -4,6 +4,15 @@
 #    MinGW:           cmake -S . -B build-mingw -G "MSYS Makefiles" -DCMAKE_BUILD_TYPE=Release
 ##############################################################################
 
+# The localized resource checker (also used by CI)
+add_executable(verify_lang tools/verify_lang.cpp)
+target_compile_definitions(verify_lang PRIVATE UNICODE _UNICODE)
+if(MSVC)
+    target_compile_options(verify_lang PRIVATE /utf-8)
+endif()
+
+##############################################################################
+
 cmake_minimum_required(VERSION 3.15)
 
 # Select the MSVC runtime library the modern way (CMP0091)

@@ -30,8 +30,8 @@ jobs:
       - name: Verify the localized resources
         shell: cmd
         run: |
-          cl /nologo /utf-8 /EHsc /O1 tools\verify_lang.cpp /link /SUBSYSTEM:CONSOLE user32.lib
-          verify_lang.exe build-${{ matrix.arch }}\Release\Typaste.exe
+          cmake --build build-${{ matrix.arch }} --config Release --target verify_lang
+          build-${{ matrix.arch }}\Release\verify_lang.exe build-${{ matrix.arch }}\Release\Typaste.exe
 
       - name: Sign (optional, needs CODESIGN_PFX_BASE64)
         if: env.CODESIGN_PFX_BASE64 != ''
