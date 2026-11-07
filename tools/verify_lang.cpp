@@ -99,6 +99,18 @@ int wmain(int argc, wchar_t **argv)
             failed = 1;
     }
 
+    // The LANG_NEUTRAL fallback must exist as well
+    {
+        LANGID neutral = MAKELANGID(LANG_NEUTRAL, SUBLANG_NEUTRAL);
+        BOOL bDlg = (FindResourceExW(h, MAKEINTRESOURCEW(5), MAKEINTRESOURCEW(100), neutral) != NULL);
+        std::wstring title = LoadStringEx(h, 102, neutral);
+        printf("[neutral] dialog100=%s title=", bDlg ? "ok" : "MISSING");
+        Put(title);
+        printf("\n");
+        if (!bDlg || title.empty())
+            failed = 1;
+    }
+
     if (failed)
     {
         printf("RESULT: FAILED\n");

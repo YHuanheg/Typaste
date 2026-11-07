@@ -35,7 +35,7 @@ rc /nologo /fo "%OUT%\obj\Typaste_res.res" Typaste_res.rc || goto :error
 
 cl /nologo /utf-8 /W4 /MT /EHsc /DUNICODE /D_UNICODE %OPT% ^
    /Fo"%OUT%\obj\\" /Fd"%OUT%\obj\\" /Fe"%OUT%\Typaste.exe" ^
-   Typaste.cpp AutoType.cpp Lang.cpp ^
+   Typaste.cpp AutoType.cpp Lang.cpp Settings.cpp Config.cpp Clipboard.cpp Dpi.cpp Util.cpp ^
    /link /SUBSYSTEM:WINDOWS /MANIFEST:NO /DYNAMICBASE /NXCOMPAT /HIGHENTROPYVA ^
    user32.lib gdi32.lib comctl32.lib comdlg32.lib shell32.lib shlwapi.lib winmm.lib imm32.lib advapi32.lib ^
    "%OUT%\obj\Typaste_res.res" || goto :error

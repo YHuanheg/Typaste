@@ -4,12 +4,15 @@
 #   python tools/gen_lang.py
 #
 # Every dialog layout lives here once; only the text differs per language.
-# The output is UTF-16LE (no BOM), which is what rc.exe expects for these files.
+# A LANG_NEUTRAL copy of the English resources is generated as well, so that
+# the Win32 loader has a deterministic fallback when the UI language of the
+# system is not one of the supported ones.
 import os
+import re
 import sys
 
-VERSION = "1.3.0"
-VERSION_TUPLE = "1, 3, 0, 0"
+VERSION = "1.4.0"
+VERSION_TUPLE = "1, 4, 0, 0"
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 TEMPLATE = r'''// Typaste localized resources for @@tag@@
@@ -22,56 +25,60 @@ LANGUAGE @@rc_language@@
 //////////////////////////////////////////////////////////////////////////////
 // RT_DIALOG
 
-IDD_MAIN DIALOG 0, 0, 260, 170
+IDD_MAIN DIALOG 0, 0, 320, 286
 CAPTION "@@main_title@@"
 STYLE DS_CENTER | DS_MODALFRAME | WS_POPUPWINDOW | WS_CAPTION | WS_MINIMIZEBOX
 FONT 9, "@@font@@"
 {
-    ICON 0, ico1, 10, 10, 0, 0
-    LTEXT "@@main_title@@", txtTitle, 56, 9, 192, 11
-    LTEXT "@@subtitle@@", -1, 56, 22, 192, 10
-    LTEXT "@@desc@@", -1, 10, 42, 240, 64
-    LTEXT "", txtHotkey, 10, 110, 170, 10
-    LTEXT "", txtStatus, 10, 122, 170, 10
-    PUSHBUTTON "@@btn_exit@@", IDCANCEL, 188, 110, 62, 22
-    PUSHBUTTON "@@btn_readme@@", psh2, 10, 140, 76, 22
-    PUSHBUTTON "@@btn_settings@@", psh1, 92, 140, 76, 22
-    PUSHBUTTON "@@btn_about@@", btnAbout, 174, 140, 76, 22
+    ICON 0, ico1, 12, 12, 0, 0
+    LTEXT "@@main_title@@", txtTitle, 58, 12, 250, 12
+    LTEXT "@@subtitle@@", -1, 58, 26, 250, 10
+    LTEXT "@@select_hint@@", -1, 12, 44, 296, 10
+    EDITTEXT edtClip, 12, 58, 296, 140, ES_MULTILINE | ES_AUTOVSCROLL | ES_WANTRETURN | WS_VSCROLL | WS_TABSTOP
+    LTEXT "", txtHotkey, 12, 206, 180, 10
+    LTEXT "", txtStatus, 12, 218, 180, 10
+    PUSHBUTTON "@@btn_copy@@", pshCopy, 200, 204, 108, 16
+    PUSHBUTTON "@@btn_exit@@", IDCANCEL, 200, 224, 108, 20
+    PUSHBUTTON "@@btn_readme@@", psh2, 12, 254, 92, 22
+    PUSHBUTTON "@@btn_settings@@", psh1, 114, 254, 92, 22
+    PUSHBUTTON "@@btn_about@@", btnAbout, 216, 254, 92, 22
 }
 
-IDD_SETTINGS DIALOG 0, 0, 260, 276
+IDD_SETTINGS DIALOG 0, 0, 260, 310
 CAPTION "@@settings_caption@@"
 STYLE DS_CENTER | DS_MODALFRAME | WS_POPUPWINDOW | WS_CAPTION
 FONT 9, "@@font@@"
 {
-    GROUPBOX "@@grp_input@@", grpInput, 7, 7, 246, 66
+    GROUPBOX "@@grp_input@@", grpInput, 7, 7, 246, 96
     RTEXT "@@delay_type@@", -1, 14, 24, 74, 10
     EDITTEXT edt1, 92, 22, 36, 14, ES_NUMBER | ES_RIGHT
     CONTROL "", scr1, "msctls_updown32", UDS_NOTHOUSANDS | UDS_ARROWKEYS | UDS_AUTOBUDDY | UDS_ALIGNRIGHT | UDS_SETBUDDYINT, 128, 22, 12, 14
     LTEXT "@@ms@@", -1, 142, 24, 30, 10
     AUTOCHECKBOX "@@random@@", chx2, 172, 22, 76, 14
-    RTEXT "@@delay_start@@", -1, 14, 48, 74, 10
-    EDITTEXT edt3, 92, 46, 36, 14, ES_NUMBER | ES_RIGHT
-    CONTROL "", scr2, "msctls_updown32", UDS_NOTHOUSANDS | UDS_ARROWKEYS | UDS_AUTOBUDDY | UDS_ALIGNRIGHT | UDS_SETBUDDYINT, 128, 46, 12, 14
-    LTEXT "@@ms@@", -1, 142, 48, 30, 10
+    LTEXT "@@lbl_speed@@", -1, 14, 46, 74, 10
+    CONTROL "", sld1, "msctls_trackbar32", TBS_AUTOTICKS | TBS_HORZ, 92, 42, 130, 20
+    RTEXT "@@delay_start@@", -1, 14, 72, 74, 10
+    EDITTEXT edt3, 92, 70, 36, 14, ES_NUMBER | ES_RIGHT
+    CONTROL "", scr2, "msctls_updown32", UDS_NOTHOUSANDS | UDS_ARROWKEYS | UDS_AUTOBUDDY | UDS_ALIGNRIGHT | UDS_SETBUDDYINT, 128, 70, 12, 14
+    LTEXT "@@ms@@", -1, 142, 72, 30, 10
 
-    GROUPBOX "@@grp_keys@@", grpKeys, 7, 80, 246, 76
-    RTEXT "@@hotkey@@", -1, 14, 96, 74, 10
-    CONTROL "", edt2, "msctls_hotkey32", 0, 92, 93, 120, 14
-    LTEXT "@@sound@@", -1, 14, 118, 74, 10
-    COMBOBOX cmb1, 92, 116, 100, 200, CBS_NOINTEGRALHEIGHT | CBS_HASSTRINGS | CBS_AUTOHSCROLL | CBS_DROPDOWN | WS_VSCROLL | WS_TABSTOP
-    PUSHBUTTON "@@browse@@", psh2, 196, 116, 50, 14
-    PUSHBUTTON "@@play@@", psh3, 196, 134, 50, 14
+    GROUPBOX "@@grp_keys@@", grpKeys, 7, 110, 246, 76
+    RTEXT "@@hotkey@@", -1, 14, 126, 74, 10
+    CONTROL "", edt2, "msctls_hotkey32", 0, 92, 123, 120, 14
+    LTEXT "@@sound@@", -1, 14, 148, 74, 10
+    COMBOBOX cmb1, 92, 146, 100, 200, CBS_NOINTEGRALHEIGHT | CBS_HASSTRINGS | CBS_AUTOHSCROLL | CBS_DROPDOWN | WS_VSCROLL | WS_TABSTOP
+    PUSHBUTTON "@@browse@@", psh2, 196, 146, 50, 14
+    PUSHBUTTON "@@play@@", psh3, 196, 164, 50, 14
 
-    GROUPBOX "@@grp_other@@", grpOther, 7, 163, 246, 78
-    AUTOCHECKBOX "@@ime@@", chx1, 14, 178, 140, 14
-    LTEXT "@@lbl_language@@", -1, 14, 198, 62, 10
-    COMBOBOX cmb2, 74, 196, 172, 120, CBS_DROPDOWNLIST | CBS_NOINTEGRALHEIGHT | WS_VSCROLL | WS_TABSTOP
-    PUSHBUTTON "@@btn_whitelist@@", btnWhitelist, 14, 214, 130, 16
+    GROUPBOX "@@grp_other@@", grpOther, 7, 193, 246, 78
+    AUTOCHECKBOX "@@ime@@", chx1, 14, 208, 140, 14
+    LTEXT "@@lbl_language@@", -1, 14, 228, 62, 10
+    COMBOBOX cmb2, 74, 226, 172, 120, CBS_DROPDOWNLIST | CBS_NOINTEGRALHEIGHT | WS_VSCROLL | WS_TABSTOP
+    PUSHBUTTON "@@btn_whitelist@@", btnWhitelist, 14, 244, 130, 16
 
-    PUSHBUTTON "@@btn_reset@@", btnReset, 7, 252, 74, 16
-    DEFPUSHBUTTON "@@btn_ok@@", IDOK, 104, 252, 68, 16
-    PUSHBUTTON "@@btn_cancel@@", IDCANCEL, 180, 252, 68, 16
+    PUSHBUTTON "@@btn_reset@@", btnReset, 7, 282, 74, 16
+    DEFPUSHBUTTON "@@btn_ok@@", IDOK, 104, 282, 68, 16
+    PUSHBUTTON "@@btn_cancel@@", IDCANCEL, 180, 282, 68, 16
 }
 
 IDD_WHITELIST DIALOG 0, 0, 260, 196
@@ -155,6 +162,9 @@ STRINGTABLE
     IDS_TRAY_ABOUT, "@@s_trayabout@@"
     IDS_TRAY_EXIT, "@@s_trayexit@@"
     IDS_TRAY_TIP, "@@main_title@@"
+    IDS_COPIED, "@@s_copied@@"
+    IDS_CONFIG_PATH, "@@s_configpath@@"
+    IDS_CLIP_EMPTY, "@@s_clipempty@@"
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -170,14 +180,13 @@ LANGS = [
         "text": dict(
             main_title="Typaste " + VERSION,
             subtitle="Typing + Paste == Typaste",
-            desc="Typaste intercepts the pasting process by Ctrl+V while this window is "
-                 "displayed and emulates text input like typing. This allows you to break "
-                 "through the paste prohibition.\\n\\nPress the Esc key to stop typing.",
+            desc="Typaste intercepts the pasting process by Ctrl+V and emulates text input like typing.",
+            select_hint="Select a part of the text below; the hot-key types only the selection.",
             btn_readme="&Open ReadMe", btn_settings="&Settings...", btn_about="&About",
-            btn_exit="E&xit",
+            btn_exit="E&xit", btn_copy="&Copy to clipboard",
             settings_caption="Typaste Settings",
             grp_input="Typing", delay_type="&Delay to type:", delay_start="Delay to s&tart:",
-            ms="ms", random="&Random",
+            ms="ms", random="&Random", lbl_speed="&Speed:",
             grp_keys="Hot-key and sound", hotkey="&HotKey:", sound="&Sound:",
             browse="&Browse...", play="&Play",
             grp_other="Other", ime="Control &IME On/Off", lbl_language="&Language:",
@@ -209,6 +218,9 @@ LANGS = [
             s_traysettings="Settings...",
             s_trayabout="About",
             s_trayexit="Exit",
+            s_copied="Copied to the clipboard.",
+            s_configpath="Settings file: %s",
+            s_clipempty="(The clipboard is empty)",
         ),
     },
     {
@@ -220,14 +232,15 @@ LANGS = [
         "text": dict(
             main_title="Typaste " + VERSION,
             subtitle="Typing + Paste == Typaste",
-            desc="Typaste は、このウィンドウが表示されている間、Ctrl+V による貼り付け処理に"
-                 "割り込み、まるで打ち込むようにテキスト入力をエミュレートするプログラムです。"
-                 "これにより、貼り付け禁止を突破できます。\\n\\nEsc キーで入力を停止できます。",
+            desc="Typaste は Ctrl+V の貼り付けに割り込み、打ち込むように入力をエミュレートします。",
+            select_hint="下のテキストを選択しておくと、ホットキーは選択部分だけを入力します。",
             btn_readme="ReadMe を開く(&O)", btn_settings="設定変更(&S)...",
             btn_about="バージョン情報(&A)", btn_exit="終了(&X)",
+            btn_copy="クリップボードへコピー(&C)",
             settings_caption="Typaste 設定",
             grp_input="タイピング", delay_type="タイプ遅延(&D):",
             delay_start="開始遅延(&T):", ms="ミリ秒", random="ランダム(&R)",
+            lbl_speed="速度(&S):",
             grp_keys="ホットキーと音声", hotkey="ホットキー(&H):", sound="音声(&S):",
             browse="参照(&B)...", play="再生(&P)",
             grp_other="その他", ime="&IME のオン／オフを制御", lbl_language="言語(&L):",
@@ -259,6 +272,9 @@ LANGS = [
             s_traysettings="設定変更...",
             s_trayabout="バージョン情報",
             s_trayexit="終了",
+            s_copied="クリップボードにコピーしました。",
+            s_configpath="設定ファイル: %s",
+            s_clipempty="(クリップボードは空です)",
         ),
     },
     {
@@ -270,13 +286,13 @@ LANGS = [
         "text": dict(
             main_title="Typaste " + VERSION,
             subtitle="Typing + Paste == Typaste",
-            desc="Typaste 会在本窗口显示期间拦截 Ctrl+V 粘贴，把剪贴板里的文本逐字符模拟成"
-                 "键盘输入打出来，从而绕过“禁止粘贴”的限制。\\n\\n按 Esc 键可停止输入。",
+            desc="Typaste 会拦截 Ctrl+V 粘贴，并像打字一样模拟输入。",
+            select_hint="在下面的文本里选中一段，按热键时只输入选中的内容。",
             btn_readme="打开说明(&O)", btn_settings="设置(&S)...", btn_about="关于(&A)",
-            btn_exit="退出(&X)",
+            btn_exit="退出(&X)", btn_copy="复制到剪贴板(&C)",
             settings_caption="Typaste 设置",
             grp_input="输入", delay_type="输入延迟(&D):", delay_start="开始前延迟(&T):",
-            ms="毫秒", random="随机间隔(&R)",
+            ms="毫秒", random="随机间隔(&R)", lbl_speed="速度(&S):",
             grp_keys="热键与提示音", hotkey="热键(&H):", sound="提示音(&S):",
             browse="浏览(&B)...", play="试听(&P)",
             grp_other="其他", ime="自动切换输入法状态(&I)", lbl_language="界面语言(&L):",
@@ -308,6 +324,9 @@ LANGS = [
             s_traysettings="设置...",
             s_trayabout="关于",
             s_trayexit="退出",
+            s_copied="已复制到剪贴板。",
+            s_configpath="设置文件：%s",
+            s_clipempty="（剪贴板为空）",
         ),
     },
     {
@@ -319,13 +338,13 @@ LANGS = [
         "text": dict(
             main_title="Typaste " + VERSION,
             subtitle="Typing + Paste == Typaste",
-            desc="Typaste 會在本視窗顯示期間攔截 Ctrl+V 貼上，把剪貼簿的文字逐字模擬成"
-                 "鍵盤輸入打出，藉此繞過「禁止貼上」的限制。\\n\\n按 Esc 鍵可停止輸入。",
+            desc="Typaste 會攔截 Ctrl+V 貼上，並像打字一樣模擬輸入。",
+            select_hint="在下面的文字裡選取一段，按熱鍵時只輸入選取的內容。",
             btn_readme="開啟說明(&O)", btn_settings="設定(&S)...", btn_about="關於(&A)",
-            btn_exit="結束(&X)",
+            btn_exit="結束(&X)", btn_copy="複製到剪貼簿(&C)",
             settings_caption="Typaste 設定",
             grp_input="輸入", delay_type="輸入延遲(&D):", delay_start="開始前延遲(&T):",
-            ms="毫秒", random="隨機間隔(&R)",
+            ms="毫秒", random="隨機間隔(&R)", lbl_speed="速度(&S):",
             grp_keys="熱鍵與提示音", hotkey="熱鍵(&H):", sound="提示音(&S):",
             browse="瀏覽(&B)...", play="試聽(&P)",
             grp_other="其他", ime="自動切換輸入法狀態(&I)", lbl_language="介面語言(&L):",
@@ -357,16 +376,19 @@ LANGS = [
             s_traysettings="設定...",
             s_trayabout="關於",
             s_trayexit="結束",
+            s_copied="已複製到剪貼簿。",
+            s_configpath="設定檔：%s",
+            s_clipempty="（剪貼簿為空）",
         ),
     },
 ]
 
 
-def render(lang):
+def render(lang, language_line=None, drop_version=False):
     values = dict(lang["text"])
     values.update({
         "tag": lang["tag"],
-        "rc_language": lang["language"],
+        "rc_language": language_line or lang["language"],
         "font": lang["font"],
         "langid_hex": lang["langid_hex"],
         "lang_hex": lang["lang_hex"],
@@ -377,8 +399,13 @@ def render(lang):
     text = TEMPLATE
     for key, value in values.items():
         text = text.replace("@@" + key + "@@", value)
+    if drop_version:
+        start = text.find("//////////////////////////////////////////////////////////////////////////////\\n// RT_VERSION")
+        end = text.find("//////////////////////////////////////////////////////////////////////////////\\n// RT_STRING")
+        if start >= 0 and end > start:
+            text = text[:start] + text[end:]
     if "@@" in text:
-        raise RuntimeError("unreplaced placeholder in " + lang["file"])
+        raise RuntimeError("unreplaced placeholder")
     return text
 
 
@@ -389,6 +416,16 @@ def main():
         with open(path, "wb") as fp:
             fp.write(data)
         print("generated %s (%d bytes)" % (lang["file"], len(data)))
+
+    # The LANG_NEUTRAL fallback: English text without the version block
+    neutral = render(LANGS[0], language_line="LANG_NEUTRAL, SUBLANG_NEUTRAL", drop_version=True)
+    neutral = neutral.replace("// Typaste localized resources for en-US",
+                              "// Typaste LANG_NEUTRAL fallback resources\\n// GENERATED FILE --- edit tools/gen_lang.py instead of this file.")
+    path = os.path.join(ROOT, "lang/neutral.rc")
+    data = neutral.encode("utf-16-le")
+    with open(path, "wb") as fp:
+        fp.write(data)
+    print("generated lang/neutral.rc (%d bytes)" % len(data))
     return 0
 
 

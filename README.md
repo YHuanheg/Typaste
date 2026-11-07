@@ -23,11 +23,21 @@ Press the Esc key to stop typing.
 - Optional typing sound
 - Four UI languages: English, Japanese, Simplified Chinese, Traditional Chinese
 - High-DPI aware, modern dialog layout, About box, one-click reset to defaults
+- **Portable configuration**: `Typaste.ini` next to the exe (falls back to the registry)
+- **Typing speed slider** in the settings dialog
+- **Clipboard preview**: the current clipboard text is shown and can be edited; selecting a
+  part of it makes the hot-key type only the selection
 - Tray icon with a context menu; the window minimizes to the notification area
 - **Program whitelist**: intercept Ctrl+V only in the programs you choose
 - Per-Monitor V2 DPI awareness (crisp on every monitor)
 - CI builds for x64 and Win32, optional Authenticode signing
 - Single instance, settings stored in `HKCU\SOFTWARE\Katayama Hirofumi MZ\Typaste`
+
+## Portable configuration
+
+On the first run Typaste creates `Typaste.ini` next to the executable (when the
+folder is writable) and keeps all settings there — language, delays, hot-key,
+sound, whitelist. Delete the file to fall back to the registry again.
 
 ## Download
 

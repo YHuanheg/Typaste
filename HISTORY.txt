@@ -15,6 +15,7 @@
 - 2026-10-31 ver.1.1.0 Added the language selection (Simplified/Traditional Chinese). Improved for x64. Maintainer: YHuanheg.
 - 2026-10-31 ver.1.2.0 Added Unicode input for CJK/emoji, a worker thread, the About box, reset-to-defaults, DPI awareness and a redesigned UI. Maintained by YHuanheg.
 - 2026-11-01 ver.1.3.0 Added the tray icon, the program whitelist, Per-Monitor V2 DPI awareness, CI builds and optional code signing.
+- 2026-11-07 ver.1.4.0 Split the sources into modules, added the LANG_NEUTRAL fallback, Typaste.ini, the speed slider and the clipboard preview with selection-only typing. C++17.
 
 ## Japanese (日本語)
 
@@ -31,9 +32,11 @@
 - 2026-10-31 ver.1.1.0 言語の選択 (簡体字/繁体字中国語) を追加。x64 向けに改善。メンテナ: YHuanheg。
 - 2026-10-31 ver.1.2.0 中国語・絵文字の Unicode 入力、ワーカースレッド、バージョン情報、設定の初期化、高 DPI 対応を追加。ダイアログを一新。メンテナー: YHuanheg
 - 2026-11-01 ver.1.3.0 トレイアイコン、プログラムの許可リスト、Per-Monitor V2 DPI、CI ビルド、コード署名 (任意) を追加。
+- 2026-11-07 ver.1.4.0 ソースをモジュールに分割し、LANG_NEUTRAL フォールバック、Typaste.ini、速度スライダー、クリップボードのプレビューと選択部分のみの入力を追加。C++17。
 
 ## Chinese (简体中文)
 
 - 2026-10-31 ver.1.2.0 支持中文/emoji 的 Unicode 输入、后台输入线程、关于对话框、恢复默认设置、高 DPI 与新界面。维护者：YHuanheg。
 - 2026-11-01 ver.1.3.0 新增托盘图标、程序白名单、Per-Monitor V2 DPI、CI 构建与可选代码签名。
+- 2026-11-07 ver.1.4.0 源码拆分为多个模块，新增 LANG_NEUTRAL 回退、Typaste.ini 配置文件、速度滑条、剪贴板预览与只输入选中部分。使用 C++17。
 - 2026-10-31 ver.1.1.0 新增界面语言选择（简体/繁体中文）。针对 x64 改进。

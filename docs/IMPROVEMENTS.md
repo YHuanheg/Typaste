@@ -180,3 +180,14 @@ VkKeyScanEx 失败时（中文、假名、emoji、非当前键盘布局的符号
 - 修改 CMakeLists.txt：默认 x64、静态 CRT、/utf-8 /W4、加固链接
 - 修改 targetver.h：默认 Vista，可用 -D 覆盖
 - 修改 README.md/.txt/_ja.txt, HISTORY.txt, .gitignore
+
+## 1.4.0 已实现
+
+| 项 | 说明 |
+| --- | --- |
+| P2-7 | Typaste.cpp 拆分为 Settings / Config / Clipboard / Dpi / Util / App 模块 |
+| P2-4 | 新增 LANG_NEUTRAL 资源回退块（见 docs/ARCHITECTURE.md） |
+| P2-8 | 显式 C++17（CMake CXX_STANDARD 17） |
+| DPI | WM_DPICHANGED 改为"96 DPI 基准布局 × dpi"重算，消除累积误差 |
+| 配置 | Typaste.ini（exe 同目录，优先于注册表） |
+| UI | 输入速度滑条；主窗口剪贴板预览 + "复制到剪贴板"；选中部分只输入选中内容 |

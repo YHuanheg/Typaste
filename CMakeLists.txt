@@ -53,7 +53,11 @@ endif()
 ##############################################################################
 
 # Typaste.exe
-add_executable(Typaste WIN32 Typaste.cpp AutoType.cpp Lang.cpp Typaste_res.rc)
+add_executable(Typaste WIN32
+    Typaste.cpp AutoType.cpp Lang.cpp
+    Settings.cpp Config.cpp Clipboard.cpp Dpi.cpp Util.cpp
+    Typaste_res.rc)
+set_target_properties(Typaste PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON)
 target_compile_definitions(Typaste PRIVATE UNICODE _UNICODE) # Unicode support
 target_link_libraries(Typaste comctl32 shell32 shlwapi winmm imm32 advapi32)
 

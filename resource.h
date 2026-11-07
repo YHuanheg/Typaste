@@ -31,6 +31,9 @@
 #define IDS_TRAY_ABOUT                      118
 #define IDS_TRAY_EXIT                       119
 #define IDS_TRAY_TIP                        120
+#define IDS_COPIED                          121
+#define IDS_CONFIG_PATH                     122
+#define IDS_CLIP_EMPTY                      123
 
 #define IDM_SHOW                            200
 #define IDM_SETTINGS                        201
@@ -60,7 +63,10 @@
 #define btnAdd                                2016
 #define btnBrowseExe                                2017
 #define btnRemove                                2018
-#define btnWhitelist                                2019
+#define btnWhitelist                        2019
+#define edtClip                             2020
+#define pshCopy                             2021
+#define sld1                                2022
 
 #ifdef APSTUDIO_INVOKED
     #ifndef APSTUDIO_READONLY_SYMBOLS
