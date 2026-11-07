@@ -17,6 +17,8 @@ License: MIT
 - Pause / Continue: hold the typing at any character, then resume it
 - Resume after a stop: press Esc, then Continue to type the remaining part
 - Adjustable typing/start delay, random interval, hot-key, IME control, sound
+- Input method control: switch the IME to English mode (or close it) while typing,
+  then restore the previous state
 - Typing speed slider in the settings dialog
 - English / Japanese / Simplified Chinese / Traditional Chinese UI
 - High-DPI aware (Per-Monitor V2), About box, reset to defaults

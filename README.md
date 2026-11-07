@@ -21,7 +21,9 @@ Press the Esc key to stop typing.
 - **Pause / Continue**: hold the typing at any character and resume it later
 - **Resume after a stop**: press Esc, then click Continue to type the rest
 - Configurable typing delay / start delay / random interval
-- Global hot-key (Ctrl+V by default), optional IME on/off control
+- Global hot-key (Ctrl+V by default)
+- **Input method control**: while typing, the IME is switched to English mode
+  (default) or closed, then the previous state is restored
 - Optional typing sound
 - Four UI languages: English, Japanese, Simplified Chinese, Traditional Chinese
 - High-DPI aware, modern dialog layout, About box, one-click reset to defaults
@@ -34,6 +36,19 @@ Press the Esc key to stop typing.
 - Per-Monitor V2 DPI awareness (crisp on every monitor)
 - CI builds for x64 and Win32, optional Authenticode signing
 - Single instance; settings live in `Typaste.ini`, or in the registry when the exe folder is read-only
+
+## Input method
+
+While the text is typed, Typaste takes the IME out of the way:
+
+| Setting | Behaviour |
+| --- | --- |
+| Switch to English mode (default) | Keeps the IME alive and sets `IME_CMODE_ALPHANUMERIC`, so the characters pass straight through |
+| Close the IME | The behaviour of the older versions: the IME is closed and reopened |
+| Off | The IME is left alone |
+
+The open state and the conversion mode are saved before the typing and restored
+afterwards, so Chinese punctuation and the full/half width setting come back.
 
 ## Pause, Continue and Resume
 

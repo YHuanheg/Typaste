@@ -18,6 +18,7 @@
 #include "Clipboard.hpp"
 #include "Dpi.hpp"
 #include "Util.hpp"
+#include "Ime.hpp"
 #include <vector>
 
 // The global variables
@@ -278,18 +279,10 @@ struct TYPE_JOB
     DWORD dwDelayToType;
     DWORD dwDelayToStart;
     BOOL bRandom;
-    BOOL bControlIME;
-    HWND hwndIme;
-    BOOL bImeOn;
+    DWORD dwImeMode;
+    IME_STATE ime;
     int nStart;
 };
-
-#ifndef IMC_GETOPENSTATUS
-    #define IMC_GETOPENSTATUS 0x0005
-#endif
-#ifndef IMC_SETOPENSTATUS
-    #define IMC_SETOPENSTATUS 0x0006
-#endif
 
 // The typing thread: it keeps the UI responsive while the text is being typed
 static DWORD WINAPI TypingThreadProc(LPVOID lpParam)
@@ -299,9 +292,9 @@ static DWORD WINAPI TypingThreadProc(LPVOID lpParam)
     MySleep(pJob->dwDelayToStart, pJob->bRandom);
     WaitModifierRelease(pJob->dwDelayToType, pJob->bRandom);
 
-    if (pJob->bControlIME && pJob->hwndIme && pJob->bImeOn)
+    if (pJob->dwImeMode != IME_CONTROL_OFF && pJob->ime.bValid)
     {
-        SendMessage(pJob->hwndIme, WM_IME_CONTROL, IMC_SETOPENSTATUS, FALSE);
+        Ime_Apply(pJob->ime, (int)pJob->dwImeMode);
         Sleep(300);
     }
 
@@ -311,11 +304,9 @@ static DWORD WINAPI TypingThreadProc(LPVOID lpParam)
                                pJob->sound.empty() ? NULL : pJob->sound.c_str(),
                                pJob->bRandom, pJob->nStart);
 
-    if (pJob->bControlIME && pJob->hwndIme && pJob->bImeOn)
-    {
-        SendMessage(pJob->hwndIme, WM_IME_CONTROL, IMC_SETOPENSTATUS, TRUE);
-        Sleep(300);
-    }
+    Ime_Restore(pJob->ime);
+    if (pJob->dwImeMode != IME_CONTROL_OFF && pJob->ime.bValid)
+        Sleep(200);
 
     delete pJob;
 
@@ -426,10 +417,11 @@ static BOOL StartTyping(HWND hwnd, const tstring_t& strText, const tstring_t& st
     s_jobText = strText;
     s_jobSound = strSound;
 
-    // This is the target window
+    // This is the target window; remember its IME state so that it can be
+    // restored when the typing is finished
     HWND hwndTarget = GetForegroundWindow();
-    HWND hwndIme = ImmGetDefaultIMEWnd(hwndTarget);
-    const BOOL bImeOn = (BOOL)SendMessage(hwndIme, WM_IME_CONTROL, IMC_GETOPENSTATUS, 0);
+    IME_STATE imeState;
+    Ime_GetState(hwndTarget, imeState);
 
     TYPE_JOB *pJob = new TYPE_JOB();
     pJob->text = strText;
@@ -437,9 +429,8 @@ static BOOL StartTyping(HWND hwnd, const tstring_t& strText, const tstring_t& st
     pJob->dwDelayToType = g_settings.dwDelayToType;
     pJob->dwDelayToStart = g_settings.dwDelayToStart;
     pJob->bRandom = g_settings.bRandom;
-    pJob->bControlIME = g_settings.bControlIME;
-    pJob->hwndIme = hwndIme;
-    pJob->bImeOn = bImeOn;
+    pJob->dwImeMode = g_settings.dwImeMode;
+    pJob->ime = imeState;
     pJob->nStart = nStart;
 
     InterlockedExchange(&g_bAbortTyping, 0);

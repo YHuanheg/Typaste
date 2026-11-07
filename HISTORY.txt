@@ -18,6 +18,7 @@
 - 2026-11-07 ver.1.4.0 Split the sources into modules, added the LANG_NEUTRAL fallback, Typaste.ini, the speed slider and the clipboard preview with selection-only typing. C++17.
 - 2026-11-07 ver.1.4.1 Fixed the program exiting when OK or Cancel was pressed in the settings dialog.
 - 2026-11-07 ver.1.5.0 Added Pause/Continue during typing and Continue after Esc stops the typing.
+- 2026-11-07 ver.1.6.0 The IME is now switched to the English mode while typing (configurable), and the open state and the conversion mode are restored afterwards. New Ime.* module.
 
 ## Japanese (日本語)
 
@@ -37,6 +38,7 @@
 - 2026-11-07 ver.1.4.0 ソースをモジュールに分割し、LANG_NEUTRAL フォールバック、Typaste.ini、速度スライダー、クリップボードのプレビューと選択部分のみの入力を追加。C++17。
 - 2026-11-07 ver.1.4.1 設定ダイアログで OK／キャンセルを押すとプログラムが終了してしまう不具合を修正。
 - 2026-11-07 ver.1.5.0 入力中の一時停止／再開と、Esc で停止したあとの「続きから」入力を追加。
+- 2026-11-07 ver.1.6.0 入力中は IME を英数モードに切り替える方式を追加（設定可）。開閉状態と変換モードを元に戻す。Ime.* を新設。
 
 ## Chinese (简体中文)
 
@@ -46,3 +48,4 @@
 - 2026-11-07 ver.1.4.0 源码拆分为多个模块，新增 LANG_NEUTRAL 回退、Typaste.ini 配置文件、速度滑条、剪贴板预览与只输入选中部分。使用 C++17。
 - 2026-11-07 ver.1.4.1 修复在设置对话框点“确定”或“取消”后程序直接退出的问题。
 - 2026-11-07 ver.1.5.0 新增输入中暂停/继续，以及按 Esc 停止后“续写”剩余内容。
+- 2026-11-07 ver.1.6.0 输入法改为打字时切到英文模式（可配置），结束后恢复开关状态与转换模式；新增 Ime.* 模块。

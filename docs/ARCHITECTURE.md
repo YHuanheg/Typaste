@@ -8,6 +8,7 @@
 | Settings.cpp | 设置数据、白名单判断、设置对话框、白名单对话框 |
 | Config.cpp | 存储后端：Typaste.ini（首选）与注册表（回退） |
 | Clipboard.cpp | 系统剪贴板读写、编辑框"选中或全部"取值 |
+| Ime.cpp | 输入法状态读取/切换/恢复（`IME_STATE`） |
 | Dpi.cpp | Per-Monitor V2：基准布局记录、按 DPI 重算、标题字体 |
 | Lang.cpp / Lang.hpp | 按 LANGID 显式加载对话框与字符串资源 |
 | AutoType.cpp | 打字引擎（SendInput + KEYEVENTF_UNICODE） |
@@ -55,6 +56,20 @@ Per-Monitor V2 只负责发 \`WM_DPICHANGED\`，不会替你重排控件。1.3.0
 
 1.4.0 改为：初始化时把每个子控件的矩形与字体**归一化到 96 DPI**存下来，
 之后每次 DPI 变化都按 \`基准 × dpi / 96\` 重算，误差不累积，且控件类型无关。
+
+## 输入法控制
+
+打字时如果输入法停在中文模式，目标窗口会弹出候选框、吞掉字符。Typaste 在
+打字线程启动前先读取并接管输入法状态，结束后原样恢复：
+
+| 阶段 | 调用 | 说明 |
+| --- | --- | --- |
+| 读取 | `Ime_GetState()` | `ImmGetDefaultIMEWnd` + `IMC_GETOPENSTATUS` / `IMC_GETCONVERSIONMODE` |
+| 切换 | `Ime_Apply(state, mode)` | 模式 2 只把转换模式设成 `IME_CMODE_ALPHANUMERIC`（保留 IME 与候选上下文）；模式 1 关闭 IME |
+| 恢复 | `Ime_Restore()` | 先恢复转换模式（中文标点、全半角随之回来），再恢复开关状态 |
+
+对执行顺序的取舍：关闭再打开 IME 会让部分输入法销毁组合窗口、丢掉候选状态，
+个别 TSF 输入法重新打开后仍回到中文模式，所以默认改为"只切转换模式"。
 
 ## 暂停 / 继续 / 续写
 

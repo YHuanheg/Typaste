@@ -43,7 +43,7 @@ struct APP_SETTINGS
     DWORD dwDelayToType;                 // the delay to type (in milliseconds)
     DWORD dwDelayToStart;                // the delay to start (in milliseconds)
     WORD  wHotKey;                       // MAKEWORD(virtual key, HOTKEYF_*)
-    BOOL  bControlIME;                   // control the IME on/off?
+    DWORD dwImeMode;                     // IME_CONTROL_* : how the IME is handled
     BOOL  bRandom;                       // randomize the interval?
     BOOL  bOnlyWhitelist;                // only work in the whitelisted programs?
     tstring_t strSound;                  // the sound file name

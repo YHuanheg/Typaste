@@ -5,6 +5,7 @@
 #include "Config.hpp"
 #include "Dpi.hpp"
 #include "Util.hpp"
+#include "Ime.hpp"
 #include <algorithm>
 #include <cwctype>
 #include <vector>
@@ -23,7 +24,7 @@ void Settings_LoadDefaults(void)
     g_settings.dwDelayToType = DEFAULT_DELAY;
     g_settings.dwDelayToStart = 0;
     g_settings.wHotKey = DEFALUT_HOTKEY;
-    g_settings.bControlIME = TRUE;
+    g_settings.dwImeMode = IME_CONTROL_ALPHANUM;
     g_settings.bRandom = FALSE;
     g_settings.bOnlyWhitelist = FALSE;
     g_settings.whitelist.clear();
@@ -46,8 +47,10 @@ BOOL Settings_Load(void)
         g_settings.dwDelayToStart = dwValue;
     if (Config_ReadInt(TEXT("HotKey"), &dwValue))
         g_settings.wHotKey = (WORD)dwValue;
-    if (Config_ReadInt(TEXT("ControlIME"), &dwValue))
-        g_settings.bControlIME = !!dwValue;
+    if (Config_ReadInt(TEXT("ImeMode"), &dwValue) && dwValue <= IME_CONTROL_ALPHANUM)
+        g_settings.dwImeMode = dwValue;
+    else if (Config_ReadInt(TEXT("ControlIME"), &dwValue))   // migrate the old flag
+        g_settings.dwImeMode = dwValue ? IME_CONTROL_CLOSE : IME_CONTROL_OFF;
     if (Config_ReadInt(TEXT("Random"), &dwValue))
         g_settings.bRandom = !!dwValue;
     if (Config_ReadInt(TEXT("OnlyWhitelist"), &dwValue))
@@ -87,7 +90,8 @@ BOOL Settings_Save(void)
     bResult &= Config_WriteInt(TEXT("Delay"), g_settings.dwDelayToType);
     bResult &= Config_WriteInt(TEXT("DelayToStart"), g_settings.dwDelayToStart);
     bResult &= Config_WriteInt(TEXT("HotKey"), g_settings.wHotKey);
-    bResult &= Config_WriteInt(TEXT("ControlIME"), g_settings.bControlIME);
+    bResult &= Config_WriteInt(TEXT("ImeMode"), g_settings.dwImeMode);
+    bResult &= Config_WriteInt(TEXT("ControlIME"), g_settings.dwImeMode != IME_CONTROL_OFF);
     bResult &= Config_WriteInt(TEXT("Random"), g_settings.bRandom);
     bResult &= Config_WriteInt(TEXT("OnlyWhitelist"), g_settings.bOnlyWhitelist);
     tstring_t strSound = g_settings.strSound;
@@ -192,6 +196,31 @@ BOOL Settings_IsForegroundWhitelisted(void)
 
 //////////////////////////////////////////////////////////////////////////////
 // The dialogs
+
+// Fill the IME mode combo box and sync the check box
+static void Settings_InitImeMode(HWND hwnd)
+{
+    HWND hCmb = GetDlgItem(hwnd, cmbIme);
+    if (!hCmb)
+        return;
+
+    ComboBox_ResetContent(hCmb);
+
+    tstring_t strClose = LoadStr(IDS_IME_CLOSE);
+    if (strClose.empty())
+        strClose = TEXT("Close the IME");
+    tstring_t strAlpha = LoadStr(IDS_IME_ALPHANUM);
+    if (strAlpha.empty())
+        strAlpha = TEXT("Switch to English mode");
+
+    ComboBox_AddString(hCmb, strClose.c_str());
+    ComboBox_AddString(hCmb, strAlpha.c_str());
+
+    const BOOL bOn = (g_settings.dwImeMode != IME_CONTROL_OFF);
+    CheckDlgButton(hwnd, chx1, bOn ? BST_CHECKED : BST_UNCHECKED);
+    ComboBox_SetCurSel(hCmb, (g_settings.dwImeMode == IME_CONTROL_ALPHANUM) ? 1 : 0);
+    EnableWindow(hCmb, bOn);
+}
 
 // Fill the language combo box
 static void Settings_InitLanguage(HWND hwnd)
@@ -430,8 +459,8 @@ static BOOL Settings_OnInitDialog(HWND hwnd, HWND hwndFocus, LPARAM lParam)
         ComboBox_AddString(hCmb1, g_settings.strSound.c_str());
     ComboBox_SetText(hCmb1, g_settings.strSound.c_str());
 
-    // Control IME?
-    CheckDlgButton(hwnd, chx1, g_settings.bControlIME ? BST_CHECKED : BST_UNCHECKED);
+    // How the IME is handled while typing
+    Settings_InitImeMode(hwnd);
 
     // Random interval?
     CheckDlgButton(hwnd, chx2, g_settings.bRandom ? BST_CHECKED : BST_UNCHECKED);
@@ -480,7 +509,11 @@ static void Settings_OnOK(HWND hwnd)
     g_settings.dwDelayToType = GetDlgItemInt(hwnd, edt1, NULL, FALSE);
     g_settings.dwDelayToStart = GetDlgItemInt(hwnd, edt3, NULL, FALSE);
     g_settings.wHotKey = (WORD)SendDlgItemMessage(hwnd, edt2, HKM_GETHOTKEY, 0, 0);
-    g_settings.bControlIME = (IsDlgButtonChecked(hwnd, chx1) == BST_CHECKED);
+    if (IsDlgButtonChecked(hwnd, chx1) == BST_CHECKED)
+        g_settings.dwImeMode = (ComboBox_GetCurSel(GetDlgItem(hwnd, cmbIme)) == 1)
+                                   ? IME_CONTROL_ALPHANUM : IME_CONTROL_CLOSE;
+    else
+        g_settings.dwImeMode = IME_CONTROL_OFF;
     g_settings.bRandom = (IsDlgButtonChecked(hwnd, chx2) == BST_CHECKED);
 
     TCHAR szText[MAX_PATH];
@@ -538,8 +571,6 @@ static void Settings_OnPlay(HWND hwnd)
 static void Settings_OnCommand(HWND hwnd, int id, HWND hwndCtl, UINT codeNotify)
 {
     UNREFERENCED_PARAMETER(hwndCtl);
-    UNREFERENCED_PARAMETER(codeNotify);
-
     switch (id)
     {
     case IDOK:
@@ -559,6 +590,11 @@ static void Settings_OnCommand(HWND hwnd, int id, HWND hwndCtl, UINT codeNotify)
         break;
     case btnWhitelist:
         Lang_DialogBox(g_hInst, MAKEINTRESOURCE(IDD_WHITELIST), hwnd, WhitelistDialogProc, 0);
+        break;
+    case chx1:
+        if (codeNotify == BN_CLICKED)
+            EnableWindow(GetDlgItem(hwnd, cmbIme),
+                         IsDlgButtonChecked(hwnd, chx1) == BST_CHECKED);
         break;
     }
 }

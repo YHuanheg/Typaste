@@ -40,6 +40,8 @@
 #define IDS_STATUS_TYPING_FMT               127
 #define IDS_STATUS_PAUSED_FMT               128
 #define IDS_STATUS_STOPPED_FMT              129
+#define IDS_IME_CLOSE                       130
+#define IDS_IME_ALPHANUM                    131
 
 #define IDM_SHOW                            200
 #define IDM_SETTINGS                        201
@@ -76,6 +78,7 @@
 #define sld1                                2022
 #define pshPause                            2023
 #define pshResume                           2024
+#define cmbIme                             2025
 
 #ifdef APSTUDIO_INVOKED
     #ifndef APSTUDIO_READONLY_SYMBOLS

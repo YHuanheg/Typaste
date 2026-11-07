@@ -11,6 +11,7 @@ Win32 桌面程序（C++17，MSVC）：拦截全局热键 Ctrl+V，把剪贴板�
 | `Settings.cpp` | 设置数据、白名单判定、设置/白名单对话框 | UI 文案一律走资源 |
 | `Config.cpp` | 存储后端：`Typaste.ini` 优先，注册表回退 | 新增键必须同时改 Load/Save |
 | `Clipboard.cpp` | 剪贴板读写、编辑框"选中或全部" | — |
+| `Ime.cpp` | 输入法状态读取/切换/恢复 | 只用 IMM32 消息，失败要能回退 |
 | `Dpi.cpp` | 96 DPI 基准布局记录 + `WM_DPICHANGED` 重算 | 新增控件自动纳入，勿手写缩放 |
 | `Lang.cpp/.hpp` | 按 LANGID 显式加载对话框与字符串 | 资源缺失时逐级回退 |
 | `AutoType.cpp` | 打字引擎（`SendInput` + `KEYEVENTF_UNICODE`）；返回断点索引，供「续写」用 | 改节奏只动这里 |
@@ -52,6 +53,7 @@ CI（`.github/workflows/build.yml`）跑 x64 + Win32 矩阵，并在每个架构
 - 对话框进程内常量放 `App.hpp`；`WM_APP_TRAY` / `WM_APP_TYPING_DONE` 已占用 `WM_APP+1/+2`。
 - 新对话框必须在 `WM_INITDIALOG` 里调 `Dpi_InitTracking(hwnd)`，并在 `WM_DPICHANGED` 里 `return Dpi_HandleChanged(...)`。
 - 输入线程只做打字，不碰 UI；结束时 `PostMessage(WM_APP_TYPING_DONE)`。
+- 输入法只走 `Ime_GetState/Apply/Restore`：不要直接 `SendMessage(IMC_SETOPENSTATUS)`，否则会漏掉转换模式的恢复。
 - 暂停只看 `g_bPauseTyping`（字符边界生效），中止只看 `g_bAbortTyping`；进度写 `g_nTypedChars`，不要再加第二套标志。
 - 主窗口是 modeless 对话框：关闭用 `DestroyWindow`，不要 `EndDialog`。
 

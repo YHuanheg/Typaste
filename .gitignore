@@ -1,4 +1,5 @@
 *.autosave
+ime_trace.log
 __pycache__/
 .dsh-ops/
 *.cmake
