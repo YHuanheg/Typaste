@@ -11,8 +11,8 @@ import os
 import re
 import sys
 
-VERSION = "1.4.0"
-VERSION_TUPLE = "1, 4, 0, 0"
+VERSION = "1.4.1"
+VERSION_TUPLE = "1, 4, 1, 0"
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 TEMPLATE = r'''// Typaste localized resources for @@tag@@

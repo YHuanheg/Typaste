@@ -31,7 +31,7 @@ Press the Esc key to stop typing.
 - **Program whitelist**: intercept Ctrl+V only in the programs you choose
 - Per-Monitor V2 DPI awareness (crisp on every monitor)
 - CI builds for x64 and Win32, optional Authenticode signing
-- Single instance, settings stored in `HKCU\SOFTWARE\Katayama Hirofumi MZ\Typaste`
+- Single instance; settings live in `Typaste.ini`, or in the registry when the exe folder is read-only
 
 ## Portable configuration
 
@@ -69,8 +69,15 @@ Without CMake, run `build_x64.bat`: it produces `build-x64\Typaste.exe` with the
 static CRT and the same hardening flags.
 
 The localized resources are generated from a single layout by
-`python tools/gen_lang.py`. Run `tools\verify_lang.bat` to check that all four
-languages made it into the binary.
+`python tools/gen_lang.py`. Run `tools\verify_lang.bat` to check that all five language blocks (four
+locales plus the `LANG_NEUTRAL` fallback) made it into the binary.
+
+## Documentation
+
+- [docs/index.md](docs/index.md) — documentation index
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — modules and the design decisions
+- [docs/IMPROVEMENTS.md](docs/IMPROVEMENTS.md) — improvement report (history)
+- [docs/SIGNING.md](docs/SIGNING.md) — optional code signing
 
 ## Credits
 

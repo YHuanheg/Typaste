@@ -414,6 +414,7 @@ static void OnCommand(HWND hwnd, int id, HWND hwndCtl, UINT codeNotify)
         Settings_Show(hwnd);
         // The settings may have changed: rebuild the window so that the
         // language, the hot-key and the delays are applied at once.
+        s_bRebuildMain = TRUE;
         DestroyWindow(hwnd);
         break;
 
@@ -678,6 +679,8 @@ WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, INT nCmdS
     // The loop
     for (;;)
     {
+        s_bRebuildMain = FALSE;
+
         HWND hwnd = Lang_CreateDialog(hInstance, MAKEINTRESOURCE(IDD_MAIN), NULL, MainDialogProc, 0);
         if (!hwnd)
         {
@@ -699,12 +702,9 @@ WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, INT nCmdS
             DispatchMessage(&msg);
         }
 
-        // The settings dialog closed: rebuild the window with the new settings
-        if (!FindMainWindow())
+        // The settings changed: re-create the main window in the new language
+        if (!s_bRebuildMain)
             break;
-
-        // Anything else means the user closed the window
-        break;
     }
 
     RemoveTrayIcon();

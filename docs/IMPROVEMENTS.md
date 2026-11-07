@@ -1,7 +1,10 @@
-# Typaste 改进报告（1.0.5 → 1.1.0）
+# Typaste 改进报告（历史：1.0.5 → 1.4.0）
 
 本报告对应三项需求：**（1）中文翻译可选语言项**、**（2）x64 改进**、**（3）可改进点分析**。
 第 1、2 项已经落地并做了实测；第 3 项按优先级列出，附文件位置与做法。
+
+> 本文按版本累积，每版在最前面加一节。"已实现"清单里的编号对应第三节目录项；
+> 仍未完成的编号散落在第三节，属于后续建议。模块与设计理由见 [ARCHITECTURE.md](ARCHITECTURE.md)。
 
 
 > **更新（1.2.0）**：下面的 P0-1、P0-2、P1-1～P1-5、P2-1、P2-3、P2-5、P2-6 与 UI 部分已经实现，详见本节；其余保留为后续建议。
@@ -23,7 +26,7 @@
 | P2-6 | 注册表写入 SettingsVersion |
 | UI | 分组式设置对话框、粗体标题、关于对话框（原作者/维护者/许可/仓库）、主窗口热键与状态行 |
 
-后续仍可做：Typaste.cpp 模块拆分（P2-7）、LANG_NEUTRAL 资源块（P2-4）、C++17（P2-8）。
+以上各项均已完成；后续建议见第三节。
 
 ## 1.3.0 已实现
 
@@ -35,7 +38,25 @@
 | CI | GitHub Actions：x64 + Win32 矩阵构建、资源校验、上传产物 |
 | 签名 | tools/sign.ps1 + CI 可选签名（CODESIGN_PFX_BASE64 / CODESIGN_PASSWORD） |
 
-剩余的 P2 建议（模块拆分、LANG_NEUTRAL、C++17、Per-Monitor 的手动布局微调）仍然成立。
+## 1.4.0 已实现
+
+| 项 | 说明 |
+| --- | --- |
+| P2-7 | Typaste.cpp 拆分为 Settings / Config / Clipboard / Dpi / Util / App 模块 |
+| P2-4 | 新增 LANG_NEUTRAL 资源回退块（见 docs/ARCHITECTURE.md） |
+| P2-8 | 显式 C++17（CMake CXX_STANDARD 17） |
+| DPI | WM_DPICHANGED 改为"96 DPI 基准布局 × dpi"重算，消除累积误差 |
+| 配置 | Typaste.ini（exe 同目录，优先于注册表） |
+| UI | 输入速度滑条；主窗口剪贴板预览 + "复制到剪贴板"；选中部分只输入选中内容 |
+
+
+---
+
+## 1.4.1 修复
+
+| 问题 | 根因 | 修复 |
+| --- | --- | --- |
+| 设置对话框点“确定/取消”后程序直接退出 | 主窗口被 `DestroyWindow` 之后，WinMain 循环无条件 `break`（重建标志从未被设置/读取） | 在设置命令里置 `s_bRebuildMain`，循环按该标志重建窗口；新增 tools/regress_settings.ps1 回归测试（OK / Cancel / 切语言三条路径） |
 
 ---
 
@@ -154,7 +175,7 @@ VkKeyScanEx 失败时（中文、假名、emoji、非当前键盘布局的符号
 6. **注册表没有设置版本号**：将来改默认值/迁移会踩坑，建议加 SettingsVersion（DWORD）。
 7. **代码组织**：Typaste.cpp 已 600+ 行且混合设置、对话框、热键、剪贴板、IME 控制。建议拆 Settings.* / MainWindow.*，把 g_* 全局收进 App 结构体。
 8. **C++ 标准**：CMake 未指定 CXX_STANDARD，默认走 MSVC 的 C++14。建议 /std:c++17，并把语言匹配表改 constexpr。
-9. **签名与分发**：do_sign_all.bat 依赖外部 ..\do_sign.bat；未签名的新 exe 会触发 SmartScreen。建议 CI 内签名。
+9. **签名与分发**：（已完成）CI 用 tools/sign.ps1 签名，配置 CODESIGN_PFX_BASE64 / CODESIGN_PASSWORD 即可；do_sign_all.bat 已删除。
 
 ### P3 —— 可选功能
 
@@ -180,14 +201,3 @@ VkKeyScanEx 失败时（中文、假名、emoji、非当前键盘布局的符号
 - 修改 CMakeLists.txt：默认 x64、静态 CRT、/utf-8 /W4、加固链接
 - 修改 targetver.h：默认 Vista，可用 -D 覆盖
 - 修改 README.md/.txt/_ja.txt, HISTORY.txt, .gitignore
-
-## 1.4.0 已实现
-
-| 项 | 说明 |
-| --- | --- |
-| P2-7 | Typaste.cpp 拆分为 Settings / Config / Clipboard / Dpi / Util / App 模块 |
-| P2-4 | 新增 LANG_NEUTRAL 资源回退块（见 docs/ARCHITECTURE.md） |
-| P2-8 | 显式 C++17（CMake CXX_STANDARD 17） |
-| DPI | WM_DPICHANGED 改为"96 DPI 基准布局 × dpi"重算，消除累积误差 |
-| 配置 | Typaste.ini（exe 同目录，优先于注册表） |
-| UI | 输入速度滑条；主窗口剪贴板预览 + "复制到剪贴板"；选中部分只输入选中内容 |
