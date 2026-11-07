@@ -14,6 +14,8 @@ License: MIT
 
 - CJK/emoji input via SendInput + KEYEVENTF_UNICODE (no keyboard layout needed)
 - Typing runs on a worker thread (the window stays responsive)
+- Pause / Continue: hold the typing at any character, then resume it
+- Resume after a stop: press Esc, then Continue to type the remaining part
 - Adjustable typing/start delay, random interval, hot-key, IME control, sound
 - Typing speed slider in the settings dialog
 - English / Japanese / Simplified Chinese / Traditional Chinese UI

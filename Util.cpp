@@ -33,3 +33,12 @@ tstring_t FormatInt(const tstring_t& fmt, int nValue)
     wsprintf(szText, fmt.c_str(), nValue);
     return szText;
 }
+
+tstring_t FormatInt2(const tstring_t& fmt, int nValue1, int nValue2)
+{
+    TCHAR szText[512] = TEXT("");
+    if (fmt.empty())
+        return szText;
+    wsprintf(szText, fmt.c_str(), nValue1, nValue2);
+    return szText;
+}

@@ -34,11 +34,18 @@
 #define IDS_COPIED                          121
 #define IDS_CONFIG_PATH                     122
 #define IDS_CLIP_EMPTY                      123
+#define IDS_PAUSE                           124
+#define IDS_CONTINUE                        125
+#define IDS_RESUME                          126
+#define IDS_STATUS_TYPING_FMT               127
+#define IDS_STATUS_PAUSED_FMT               128
+#define IDS_STATUS_STOPPED_FMT              129
 
 #define IDM_SHOW                            200
 #define IDM_SETTINGS                        201
 #define IDM_ABOUT                           202
 #define IDM_EXIT                            203
+#define IDM_PAUSE                           204
 
 #define ID_EXIT                             100
 #define ID_PROPERTIES                       101
@@ -67,6 +74,8 @@
 #define edtClip                             2020
 #define pshCopy                             2021
 #define sld1                                2022
+#define pshPause                            2023
+#define pshResume                           2024
 
 #ifdef APSTUDIO_INVOKED
     #ifndef APSTUDIO_READONLY_SYMBOLS

@@ -56,4 +56,6 @@ extern HICON        g_hIcon;             // the main icon
 extern HICON        g_hIconSm;           // the small icon
 extern TCHAR        g_szNone[64];        // "(None)"
 extern volatile LONG g_bAbortTyping;     // stop the typing thread now?
+extern volatile LONG g_bPauseTyping;     // hold the typing at a character boundary
+extern volatile LONG g_nTypedChars;      // UTF-16 units typed so far
 extern APP_SETTINGS g_settings;          // the current settings

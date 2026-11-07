@@ -18,6 +18,8 @@ Press the Esc key to stop typing.
 - **CJK and emoji work**: characters that the keyboard layout cannot produce are
   sent as Unicode input (`SendInput` + `KEYEVENTF_UNICODE`), not as `WM_CHAR`
 - Typing runs on a worker thread, so the window stays responsive
+- **Pause / Continue**: hold the typing at any character and resume it later
+- **Resume after a stop**: press Esc, then click Continue to type the rest
 - Configurable typing delay / start delay / random interval
 - Global hot-key (Ctrl+V by default), optional IME on/off control
 - Optional typing sound
@@ -32,6 +34,15 @@ Press the Esc key to stop typing.
 - Per-Monitor V2 DPI awareness (crisp on every monitor)
 - CI builds for x64 and Win32, optional Authenticode signing
 - Single instance; settings live in `Typaste.ini`, or in the registry when the exe folder is read-only
+
+## Pause, Continue and Resume
+
+While Typaste is typing you can press **Pause** at any time: the engine stops at
+a character boundary, so the target never receives a half character. **Continue**
+picks up from exactly that character.
+
+Pressing Esc stops the typing; the main window then shows how much was typed and
+enables **Continue**, which types only the remaining part of the text.
 
 ## Portable configuration
 

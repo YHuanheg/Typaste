@@ -13,7 +13,7 @@ Win32 桌面程序（C++17，MSVC）：拦截全局热键 Ctrl+V，把剪贴板�
 | `Clipboard.cpp` | 剪贴板读写、编辑框"选中或全部" | — |
 | `Dpi.cpp` | 96 DPI 基准布局记录 + `WM_DPICHANGED` 重算 | 新增控件自动纳入，勿手写缩放 |
 | `Lang.cpp/.hpp` | 按 LANGID 显式加载对话框与字符串 | 资源缺失时逐级回退 |
-| `AutoType.cpp` | 打字引擎（`SendInput` + `KEYEVENTF_UNICODE`） | 改节奏只动这里 |
+| `AutoType.cpp` | 打字引擎（`SendInput` + `KEYEVENTF_UNICODE`）；返回断点索引，供「续写」用 | 改节奏只动这里 |
 | `Util.cpp/.hpp` | `LoadStr` / `FormatStr` / `FormatInt` | — |
 | `App.hpp` | 全局变量与常量、`APP_SETTINGS` | 新全局先加 `extern` 再在此定义 |
 | `resource.h` | 控件 ID、命令 ID、字符串 ID | 见下"资源红线" |
@@ -52,6 +52,7 @@ CI（`.github/workflows/build.yml`）跑 x64 + Win32 矩阵，并在每个架构
 - 对话框进程内常量放 `App.hpp`；`WM_APP_TRAY` / `WM_APP_TYPING_DONE` 已占用 `WM_APP+1/+2`。
 - 新对话框必须在 `WM_INITDIALOG` 里调 `Dpi_InitTracking(hwnd)`，并在 `WM_DPICHANGED` 里 `return Dpi_HandleChanged(...)`。
 - 输入线程只做打字，不碰 UI；结束时 `PostMessage(WM_APP_TYPING_DONE)`。
+- 暂停只看 `g_bPauseTyping`（字符边界生效），中止只看 `g_bAbortTyping`；进度写 `g_nTypedChars`，不要再加第二套标志。
 - 主窗口是 modeless 对话框：关闭用 `DestroyWindow`，不要 `EndDialog`。
 
 ## 红线

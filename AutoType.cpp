@@ -152,8 +152,11 @@ void SwitchKL(DWORD dwDelay, BOOL bRandom)
     MySleep(dwDelay, bRandom);
 }
 
+// The number of UTF-16 units typed so far
+volatile LONG g_nTypedChars = 0;
+
 // The auto typing function
-void AutoType(LPCTSTR psz, DWORD dwDelay, LPCTSTR pszSound, BOOL bRandom)
+int AutoType(LPCTSTR psz, DWORD dwDelay, LPCTSTR pszSound, BOOL bRandom, int nStart)
 {
     const UINT cMaxKL = 10; // Who uses 10 keyboards in a moment?
 
@@ -164,12 +167,34 @@ void AutoType(LPCTSTR psz, DWORD dwDelay, LPCTSTR pszSound, BOOL bRandom)
     // Remember the old keyboard layout
     HKL hOldKL = GetKeyboardLayout(0);
 
+    const int cchTotal = lstrlen(psz);
+    if (nStart < 0)
+        nStart = 0;
+    if (nStart > cchTotal)
+        nStart = cchTotal;
+
+    int nPos = nStart;
     UINT nSent = 0;
 
+    g_nTypedChars = nPos;
+
     // The typing loop
-    for (; *psz; ++psz)
+    while (nPos < cchTotal)
     {
         // Stop when the user asked us to
+        if (g_bAbortTyping)
+            break;
+
+        // Hold here while the user has paused the typing. The pause flag is
+        // checked at a character boundary, so a pause never splits a character
+        // and the next call can continue from exactly this position.
+        while (g_bPauseTyping)
+        {
+            if (g_bAbortTyping)
+                break;
+            ::Sleep(50);
+        }
+
         if (g_bAbortTyping)
             break;
 
@@ -177,24 +202,30 @@ void AutoType(LPCTSTR psz, DWORD dwDelay, LPCTSTR pszSound, BOOL bRandom)
         if (GetAsyncKeyState(VK_ESCAPE) < 0)
             break;
 
+        const TCHAR ch = psz[nPos];
+
         // Handle special characters
-        switch (*psz)
+        switch (ch)
         {
         case L'\r': // CR
+            ++nPos;
+            g_nTypedChars = nPos;
             continue;
         case L'\n': // LF
-            // Emulate Enter key
             MyKeybdEvent(VK_RETURN, 0, 0, 0);
             MySleep(dwDelay, bRandom);
             MyKeybdEvent(VK_RETURN, 0, KEYEVENTF_KEYUP, 0);
             MySleep(dwDelay, bRandom);
+            ++nPos;
+            g_nTypedChars = nPos;
             continue;
         case L'\t': // TAB
-            // Emulate Tab key
             MyKeybdEvent(VK_TAB, 0, 0, 0);
             MySleep(dwDelay, bRandom);
             MyKeybdEvent(VK_TAB, 0, KEYEVENTF_KEYUP, 0);
             MySleep(dwDelay, bRandom);
+            ++nPos;
+            g_nTypedChars = nPos;
             continue;
         }
 
@@ -210,7 +241,7 @@ void AutoType(LPCTSTR psz, DWORD dwDelay, LPCTSTR pszSound, BOOL bRandom)
         UINT iKL = 0;
         for (iKL = 0; iKL < chkl; ++iKL)
         {
-            s = VkKeyScanEx(*psz, ahKLs[iKL]);
+            s = VkKeyScanEx(ch, ahKLs[iKL]);
             if (s != -1)
                 break; // Success!
         }
@@ -222,18 +253,19 @@ void AutoType(LPCTSTR psz, DWORD dwDelay, LPCTSTR pszSound, BOOL bRandom)
             // emoji (surrogate pairs) and any other symbol, and it is not
             // blocked by UIPI.
             int cch = 1;
-            if (IS_HIGH_SURROGATE(WORD(*psz)) && psz[1] && IS_LOW_SURROGATE(WORD(psz[1])))
+            if (IS_HIGH_SURROGATE(WORD(ch)) && psz[nPos + 1] &&
+                IS_LOW_SURROGATE(WORD(psz[nPos + 1])))
             {
                 cch = 2;
-                ++psz; // skip the low surrogate
             }
-            SendUnicodeText(psz - (cch - 1), cch, dwDelay, bRandom);
+            SendUnicodeText(psz + nPos, cch, dwDelay, bRandom);
+            nPos += cch;
         }
         else
         {
             // Choose the prefer keyboard layout
             HKL hKL;
-            for (INT k = 0; k < cMaxKL; ++k)
+            for (INT k = 0; k < (INT)cMaxKL; ++k)
             {
                 hKL = GetKeyboardLayout(0);
                 if (hKL == ahKLs[iKL])
@@ -248,7 +280,10 @@ void AutoType(LPCTSTR psz, DWORD dwDelay, LPCTSTR pszSound, BOOL bRandom)
 
             // Emulate the key press and release
             EmulateKey(vk, flags, dwDelay, bRandom);
+            ++nPos;
         }
+
+        g_nTypedChars = nPos;
 
         // A zero delay may drop characters; give the target some breathing room
         if (dwDelay == 0 && (++nSent % ZERO_DELAY_BATCH) == 0)
@@ -256,7 +291,7 @@ void AutoType(LPCTSTR psz, DWORD dwDelay, LPCTSTR pszSound, BOOL bRandom)
     }
 
     // Restore the keyboard layout
-    for (INT k = 0; k < cMaxKL; ++k)
+    for (INT k = 0; k < (INT)cMaxKL; ++k)
     {
         HKL hKL = GetKeyboardLayout(0);
         if (hKL == hOldKL)
@@ -265,4 +300,6 @@ void AutoType(LPCTSTR psz, DWORD dwDelay, LPCTSTR pszSound, BOOL bRandom)
         // Switch the keyboard layout by pressing [Shift]+[Alt]
         SwitchKL(dwDelay, bRandom);
     }
+
+    return nPos;
 }

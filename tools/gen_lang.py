@@ -11,8 +11,8 @@ import os
 import re
 import sys
 
-VERSION = "1.4.1"
-VERSION_TUPLE = "1, 4, 1, 0"
+VERSION = "1.5.0"
+VERSION_TUPLE = "1, 5, 0, 0"
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 TEMPLATE = r'''// Typaste localized resources for @@tag@@
@@ -25,7 +25,7 @@ LANGUAGE @@rc_language@@
 //////////////////////////////////////////////////////////////////////////////
 // RT_DIALOG
 
-IDD_MAIN DIALOG 0, 0, 320, 286
+IDD_MAIN DIALOG 0, 0, 320, 282
 CAPTION "@@main_title@@"
 STYLE DS_CENTER | DS_MODALFRAME | WS_POPUPWINDOW | WS_CAPTION | WS_MINIMIZEBOX
 FONT 9, "@@font@@"
@@ -34,14 +34,16 @@ FONT 9, "@@font@@"
     LTEXT "@@main_title@@", txtTitle, 58, 12, 250, 12
     LTEXT "@@subtitle@@", -1, 58, 26, 250, 10
     LTEXT "@@select_hint@@", -1, 12, 44, 296, 10
-    EDITTEXT edtClip, 12, 58, 296, 140, ES_MULTILINE | ES_AUTOVSCROLL | ES_WANTRETURN | WS_VSCROLL | WS_TABSTOP
-    LTEXT "", txtHotkey, 12, 206, 180, 10
-    LTEXT "", txtStatus, 12, 218, 180, 10
-    PUSHBUTTON "@@btn_copy@@", pshCopy, 200, 204, 108, 16
-    PUSHBUTTON "@@btn_exit@@", IDCANCEL, 200, 224, 108, 20
-    PUSHBUTTON "@@btn_readme@@", psh2, 12, 254, 92, 22
-    PUSHBUTTON "@@btn_settings@@", psh1, 114, 254, 92, 22
-    PUSHBUTTON "@@btn_about@@", btnAbout, 216, 254, 92, 22
+    EDITTEXT edtClip, 12, 58, 296, 128, ES_MULTILINE | ES_AUTOVSCROLL | ES_WANTRETURN | WS_VSCROLL | WS_TABSTOP
+    LTEXT "", txtHotkey, 12, 192, 180, 10
+    LTEXT "", txtStatus, 12, 204, 180, 10
+    PUSHBUTTON "@@btn_copy@@", pshCopy, 200, 190, 108, 16
+    PUSHBUTTON "@@btn_pause@@", pshPause, 200, 208, 52, 16
+    PUSHBUTTON "@@btn_resume@@", pshResume, 256, 208, 52, 16
+    PUSHBUTTON "@@btn_exit@@", IDCANCEL, 200, 226, 108, 18
+    PUSHBUTTON "@@btn_readme@@", psh2, 12, 250, 92, 22
+    PUSHBUTTON "@@btn_settings@@", psh1, 114, 250, 92, 22
+    PUSHBUTTON "@@btn_about@@", btnAbout, 216, 250, 92, 22
 }
 
 IDD_SETTINGS DIALOG 0, 0, 260, 310
@@ -165,6 +167,12 @@ STRINGTABLE
     IDS_COPIED, "@@s_copied@@"
     IDS_CONFIG_PATH, "@@s_configpath@@"
     IDS_CLIP_EMPTY, "@@s_clipempty@@"
+    IDS_PAUSE, "@@btn_pause@@"
+    IDS_CONTINUE, "@@btn_continue@@"
+    IDS_RESUME, "@@btn_resume@@"
+    IDS_STATUS_TYPING_FMT, "@@s_typingfmt@@"
+    IDS_STATUS_PAUSED_FMT, "@@s_pausedfmt@@"
+    IDS_STATUS_STOPPED_FMT, "@@s_stoppedfmt@@"
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -221,6 +229,10 @@ LANGS = [
             s_copied="Copied to the clipboard.",
             s_configpath="Settings file: %s",
             s_clipempty="(The clipboard is empty)",
+            btn_pause="&Pause", btn_continue="&Resume", btn_resume="Cont&inue",
+            s_typingfmt="Typing... %d/%d (Esc stops)",
+            s_pausedfmt="Paused %d/%d - press Resume",
+            s_stoppedfmt="Stopped %d/%d - press Continue",
         ),
     },
     {
@@ -275,6 +287,10 @@ LANGS = [
             s_copied="クリップボードにコピーしました。",
             s_configpath="設定ファイル: %s",
             s_clipempty="(クリップボードは空です)",
+            btn_pause="一時停止(&P)", btn_continue="再開(&R)", btn_resume="続きから(&I)",
+            s_typingfmt="入力中... %d/%d (Esc で停止)",
+            s_pausedfmt="一時停止中 %d/%d — 「再開」で続行",
+            s_stoppedfmt="停止 %d/%d — 「続きから」で再開",
         ),
     },
     {
@@ -327,6 +343,10 @@ LANGS = [
             s_copied="已复制到剪贴板。",
             s_configpath="设置文件：%s",
             s_clipempty="（剪贴板为空）",
+            btn_pause="暂停(&P)", btn_continue="继续(&C)", btn_resume="续写(&I)",
+            s_typingfmt="正在输入 %d/%d（Esc 停止）",
+            s_pausedfmt="已暂停 %d/%d，点“继续”恢复",
+            s_stoppedfmt="已停止 %d/%d，点“续写”接着打",
         ),
     },
     {
@@ -379,6 +399,10 @@ LANGS = [
             s_copied="已複製到剪貼簿。",
             s_configpath="設定檔：%s",
             s_clipempty="（剪貼簿為空）",
+            btn_pause="暫停(&P)", btn_continue="繼續(&C)", btn_resume="續寫(&I)",
+            s_typingfmt="正在輸入 %d/%d（Esc 停止）",
+            s_pausedfmt="已暫停 %d/%d，點「繼續」恢復",
+            s_stoppedfmt="已停止 %d/%d，點「續寫」接著打",
         ),
     },
 ]

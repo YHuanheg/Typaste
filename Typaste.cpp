@@ -27,6 +27,7 @@ HICON        g_hIcon         = NULL;
 HICON        g_hIconSm       = NULL;
 TCHAR        g_szNone[64]    = TEXT("(None)");
 volatile LONG g_bAbortTyping = 0;
+volatile LONG g_bPauseTyping = 0;
 
 APP_SETTINGS g_settings;
 
@@ -37,6 +38,14 @@ static HANDLE s_hSingleInstance = NULL;        // The single instance mutex
 static NOTIFYICONDATA s_nid;                   // The tray icon
 static BOOL s_bTrayAdded = FALSE;              // Is the tray icon added?
 static BOOL s_bRebuildMain = FALSE;            // Re-create the main window?
+static BOOL s_bPaused = FALSE;                 // Is the typing paused?
+
+// The job that is being typed, and the state needed to continue it later
+static std::wstring s_jobText;
+static std::wstring s_jobSound;
+static std::wstring s_resumeText;
+static std::wstring s_resumeSound;
+static volatile LONG s_nResumePos = 0;
 
 // Register a hot-key
 BOOL MyRegisterHotKey(HWND hwnd)
@@ -100,17 +109,7 @@ static void UpdateHotKeyText(HWND hwnd)
     SetDlgItemText(hwnd, txtHotkey, strText.c_str());
 }
 
-static void UpdateStatusText(HWND hwnd, LPCTSTR pszOverride)
-{
-    tstring_t strText;
-    if (pszOverride && *pszOverride)
-        strText = pszOverride;
-    else
-        strText = LoadStr(s_bTyping ? IDS_STATUS_TYPING : IDS_STATUS_READY);
-    if (strText.empty())
-        strText = s_bTyping ? TEXT("Typing...") : TEXT("Ready");
-    SetDlgItemText(hwnd, txtStatus, strText.c_str());
-}
+
 
 // Show the clipboard text in the edit box of the main window
 static void UpdateClipboardPreview(HWND hwnd)
@@ -204,6 +203,11 @@ static void OnTrayMessage(HWND hwnd, LPARAM lParam)
             break;
 
         AppendMenu(hMenu, MF_STRING, IDM_SHOW, LoadStr(IDS_TRAY_SHOW).c_str());
+        if (s_bTyping)
+        {
+            tstring_t strPause = LoadStr(s_bPaused ? IDS_CONTINUE : IDS_PAUSE);
+            AppendMenu(hMenu, MF_STRING, IDM_PAUSE, strPause.c_str());
+        }
         AppendMenu(hMenu, MF_STRING, IDM_SETTINGS, LoadStr(IDS_TRAY_SETTINGS).c_str());
         AppendMenu(hMenu, MF_STRING, IDM_ABOUT, LoadStr(IDS_TRAY_ABOUT).c_str());
         AppendMenu(hMenu, MF_SEPARATOR, 0, NULL);
@@ -277,6 +281,7 @@ struct TYPE_JOB
     BOOL bControlIME;
     HWND hwndIme;
     BOOL bImeOn;
+    int nStart;
 };
 
 #ifndef IMC_GETOPENSTATUS
@@ -300,8 +305,11 @@ static DWORD WINAPI TypingThreadProc(LPVOID lpParam)
         Sleep(300);
     }
 
-    AutoType(pJob->text.c_str(), pJob->dwDelayToType,
-             pJob->sound.empty() ? NULL : pJob->sound.c_str(), pJob->bRandom);
+    // AutoType stops at a character boundary on pause/abort and returns the
+    // index it stopped at, which is what "Continue" resumes from.
+    const int nDone = AutoType(pJob->text.c_str(), pJob->dwDelayToType,
+                               pJob->sound.empty() ? NULL : pJob->sound.c_str(),
+                               pJob->bRandom, pJob->nStart);
 
     if (pJob->bControlIME && pJob->hwndIme && pJob->bImeOn)
     {
@@ -311,6 +319,8 @@ static DWORD WINAPI TypingThreadProc(LPVOID lpParam)
 
     delete pJob;
 
+    InterlockedExchange(&g_nTypedChars, nDone);
+    InterlockedExchange(&g_bPauseTyping, 0);
     InterlockedExchange(&s_bTyping, 0);
     if (g_hwndMain)
         PostMessage(g_hwndMain, WM_APP_TYPING_DONE, 0, 0);
@@ -318,13 +328,63 @@ static DWORD WINAPI TypingThreadProc(LPVOID lpParam)
     return 0;
 }
 
-// Show a short message in the status line and restore it later
-#define TIMER_STATUS 1
+// The timers of the main window
+#define TIMER_STATUS   1
+#define TIMER_PROGRESS 2
 
+// Show a short message in the status line and restore the real state later
 static void ShowStatusMessage(HWND hwnd, LPCTSTR pszText)
 {
-    UpdateStatusText(hwnd, pszText);
+    SetDlgItemText(hwnd, txtStatus, pszText);
     SetTimer(hwnd, TIMER_STATUS, 2500, NULL);
+}
+
+// Update the status line and the pause/continue buttons
+static void UpdateTypingUI(HWND hwnd)
+{
+    const int nDone = (int)g_nTypedChars;
+    const int nTotal = (int)s_jobText.size();
+
+    tstring_t strStatus;
+    if (s_bTyping)
+    {
+        if (s_bPaused)
+            strStatus = FormatInt2(LoadStr(IDS_STATUS_PAUSED_FMT), nDone, nTotal);
+        else
+            strStatus = FormatInt2(LoadStr(IDS_STATUS_TYPING_FMT), nDone, nTotal);
+    }
+    else if (!s_resumeText.empty())
+    {
+        strStatus = FormatInt2(LoadStr(IDS_STATUS_STOPPED_FMT),
+                               (int)s_nResumePos, (int)s_resumeText.size());
+    }
+    else
+    {
+        strStatus = LoadStr(IDS_STATUS_READY);
+    }
+
+    if (strStatus.empty())
+        strStatus = s_bTyping ? TEXT("Typing...") : TEXT("Ready");
+    SetDlgItemText(hwnd, txtStatus, strStatus.c_str());
+
+    // Pause / Continue is only usable while something is being typed
+    HWND hPause = GetDlgItem(hwnd, pshPause);
+    if (hPause)
+    {
+        EnableWindow(hPause, s_bTyping ? TRUE : FALSE);
+        tstring_t strPause = LoadStr(s_bPaused ? IDS_CONTINUE : IDS_PAUSE);
+        SetWindowText(hPause, strPause.c_str());
+    }
+
+    // Continue is only usable when the last job was interrupted
+    HWND hResume = GetDlgItem(hwnd, pshResume);
+    if (hResume)
+    {
+        const BOOL bCanResume =
+            (!s_bTyping && !s_resumeText.empty() &&
+             (int)s_nResumePos < (int)s_resumeText.size());
+        EnableWindow(hResume, bCanResume);
+    }
 }
 
 // Copy the text of the edit box (or the selection) to the clipboard
@@ -342,6 +402,102 @@ static void OnCopyToClipboard(HWND hwnd)
             strCopied = TEXT("Copied to the clipboard.");
         ShowStatusMessage(hwnd, strCopied.c_str());
     }
+}
+
+// Start typing strText from nStart
+static BOOL StartTyping(HWND hwnd, const tstring_t& strText, const tstring_t& strSound, int nStart)
+{
+    if (strText.empty())
+        return FALSE;
+
+    if (strText.size() > MAX_TYPING_CHARS)
+    {
+        tstring_t strTooLong = FormatInt(LoadStr(IDS_TEXT_TOO_LONG), MAX_TYPING_CHARS);
+        MessageBox(hwnd, strTooLong.c_str(), NULL, MB_ICONWARNING);
+        return FALSE;
+    }
+
+    if (nStart < 0)
+        nStart = 0;
+    if (nStart > (int)strText.size())
+        nStart = (int)strText.size();
+
+    // Remember the job so that "Continue" can resume it
+    s_jobText = strText;
+    s_jobSound = strSound;
+
+    // This is the target window
+    HWND hwndTarget = GetForegroundWindow();
+    HWND hwndIme = ImmGetDefaultIMEWnd(hwndTarget);
+    const BOOL bImeOn = (BOOL)SendMessage(hwndIme, WM_IME_CONTROL, IMC_GETOPENSTATUS, 0);
+
+    TYPE_JOB *pJob = new TYPE_JOB();
+    pJob->text = strText;
+    pJob->sound = strSound;
+    pJob->dwDelayToType = g_settings.dwDelayToType;
+    pJob->dwDelayToStart = g_settings.dwDelayToStart;
+    pJob->bRandom = g_settings.bRandom;
+    pJob->bControlIME = g_settings.bControlIME;
+    pJob->hwndIme = hwndIme;
+    pJob->bImeOn = bImeOn;
+    pJob->nStart = nStart;
+
+    InterlockedExchange(&g_bAbortTyping, 0);
+    InterlockedExchange(&g_bPauseTyping, 0);
+    InterlockedExchange(&g_nTypedChars, nStart);
+    InterlockedExchange(&s_bTyping, 1);
+    s_bPaused = FALSE;
+
+    if (s_hTypingThread)
+    {
+        CloseHandle(s_hTypingThread);
+        s_hTypingThread = NULL;
+    }
+
+    s_hTypingThread = CreateThread(NULL, 0, TypingThreadProc, pJob, 0, NULL);
+    if (!s_hTypingThread)
+    {
+        InterlockedExchange(&s_bTyping, 0);
+        delete pJob;
+        return FALSE;
+    }
+
+    SetTimer(hwnd, TIMER_PROGRESS, 200, NULL);
+    UpdateTypingUI(hwnd);
+    return TRUE;
+}
+
+// Pause / Continue
+static void OnPauseToggle(HWND hwnd)
+{
+    if (!s_bTyping)
+        return;
+
+    const LONG bNew = g_bPauseTyping ? 0 : 1;
+    InterlockedExchange(&g_bPauseTyping, bNew);
+    s_bPaused = bNew ? TRUE : FALSE;
+    UpdateTypingUI(hwnd);
+}
+
+// Continue the interrupted job from where it stopped
+static void OnResume(HWND hwnd)
+{
+    if (s_bTyping || s_resumeText.empty())
+        return;
+
+    const int nStart = (int)s_nResumePos;
+    if (nStart >= (int)s_resumeText.size())
+        return;
+
+    tstring_t strText = s_resumeText;
+    tstring_t strSound = s_resumeSound;
+
+    s_resumeText.clear();
+    s_resumeSound.clear();
+    s_nResumePos = 0;
+
+    if (!StartTyping(hwnd, strText, strSound, nStart))
+        UpdateTypingUI(hwnd);
 }
 
 // IDD_MAIN WM_INITDIALOG
@@ -371,7 +527,7 @@ static BOOL OnInitDialog(HWND hwnd, HWND hwndFocus, LPARAM lParam)
     UpdateClipboardPreview(hwnd);
 
     UpdateHotKeyText(hwnd);
-    UpdateStatusText(hwnd, NULL);
+    UpdateTypingUI(hwnd);
 
     if (!bHotKey)
         PostMessage(hwnd, WM_COMMAND, psh1, 0);
@@ -424,6 +580,15 @@ static void OnCommand(HWND hwnd, int id, HWND hwndCtl, UINT codeNotify)
 
     case pshCopy:
         OnCopyToClipboard(hwnd);
+        break;
+
+    case pshPause:
+    case IDM_PAUSE:
+        OnPauseToggle(hwnd);
+        break;
+
+    case pshResume:
+        OnResume(hwnd);
         break;
 
     case psh4:
@@ -480,7 +645,6 @@ static void OnHotKey(HWND hwnd, int idHotKey, UINT fuModifiers, UINT vk)
     if (hEdit)
         Clip_GetEditSelectionOrAll(hEdit, strText, &bSelection);
 
-    // Without a selection, prefer the real clipboard contents
     if (!bSelection)
     {
         tstring_t strClip;
@@ -491,13 +655,6 @@ static void OnHotKey(HWND hwnd, int idHotKey, UINT fuModifiers, UINT vk)
     if (strText.empty())
     {
         NormalCtrlV(hwnd, g_settings.bRandom);
-        return;
-    }
-
-    if (strText.size() > MAX_TYPING_CHARS)
-    {
-        tstring_t strTooLong = FormatInt(LoadStr(IDS_TEXT_TOO_LONG), MAX_TYPING_CHARS);
-        MessageBox(hwnd, strTooLong.c_str(), NULL, MB_ICONWARNING);
         return;
     }
 
@@ -519,40 +676,12 @@ static void OnHotKey(HWND hwnd, int idHotKey, UINT fuModifiers, UINT vk)
         lstrcpyn(szSoundFile, pszSound, _countof(szSoundFile));
     }
 
-    // This is the target window
-    HWND hwndTarget = GetForegroundWindow();
-    HWND hwndIme = ImmGetDefaultIMEWnd(hwndTarget);
-    const BOOL bImeOn = (BOOL)SendMessage(hwndIme, WM_IME_CONTROL, IMC_GETOPENSTATUS, 0);
+    // A new hot-key press starts a new job: the old resume point is dropped
+    s_resumeText.clear();
+    s_resumeSound.clear();
+    s_nResumePos = 0;
 
-    TYPE_JOB *pJob = new TYPE_JOB();
-    pJob->text = strText;
-    pJob->sound = szSoundFile;
-    pJob->dwDelayToType = g_settings.dwDelayToType;
-    pJob->dwDelayToStart = g_settings.dwDelayToStart;
-    pJob->bRandom = g_settings.bRandom;
-    pJob->bControlIME = g_settings.bControlIME;
-    pJob->hwndIme = hwndIme;
-    pJob->bImeOn = bImeOn;
-
-    InterlockedExchange(&g_bAbortTyping, 0);
-    InterlockedExchange(&s_bTyping, 1);
-
-    if (s_hTypingThread)
-    {
-        CloseHandle(s_hTypingThread);
-        s_hTypingThread = NULL;
-    }
-
-    s_hTypingThread = CreateThread(NULL, 0, TypingThreadProc, pJob, 0, NULL);
-    if (!s_hTypingThread)
-    {
-        InterlockedExchange(&s_bTyping, 0);
-        delete pJob;
-        NormalCtrlV(hwnd, g_settings.bRandom);
-        return;
-    }
-
-    UpdateStatusText(hwnd, NULL);
+    StartTyping(hwnd, strText, szSoundFile, 0);
 }
 
 // IDD_MAIN WM_DESTROY
@@ -561,12 +690,16 @@ static void OnDestroy(HWND hwnd)
     Settings_Save();
 
     InterlockedExchange(&g_bAbortTyping, 1);
+    InterlockedExchange(&g_bPauseTyping, 0);
     if (s_hTypingThread)
     {
         WaitForSingleObject(s_hTypingThread, 3000);
         CloseHandle(s_hTypingThread);
         s_hTypingThread = NULL;
     }
+
+    KillTimer(hwnd, TIMER_STATUS);
+    KillTimer(hwnd, TIMER_PROGRESS);
 
     RemoveClipboardFormatListener(hwnd);
     RemoveTrayIcon();
@@ -596,7 +729,26 @@ MainDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             CloseHandle(s_hTypingThread);
             s_hTypingThread = NULL;
         }
-        UpdateStatusText(hwnd, NULL);
+        KillTimer(hwnd, TIMER_PROGRESS);
+        InterlockedExchange(&g_bPauseTyping, 0);
+        s_bPaused = FALSE;
+
+        // Keep the interrupted job so that "Continue" can resume it
+        const int nDone = (int)g_nTypedChars;
+        if (nDone > 0 && nDone < (int)s_jobText.size())
+        {
+            s_resumeText = s_jobText;
+            s_resumeSound = s_jobSound;
+            s_nResumePos = nDone;
+        }
+        else
+        {
+            s_resumeText.clear();
+            s_resumeSound.clear();
+            s_nResumePos = 0;
+        }
+
+        UpdateTypingUI(hwnd);
         return 0;
     }
 
@@ -615,7 +767,13 @@ MainDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     if (uMsg == WM_TIMER && wParam == TIMER_STATUS)
     {
         KillTimer(hwnd, TIMER_STATUS);
-        UpdateStatusText(hwnd, NULL);
+        UpdateTypingUI(hwnd);
+        return 0;
+    }
+
+    if (uMsg == WM_TIMER && wParam == TIMER_PROGRESS)
+    {
+        UpdateTypingUI(hwnd);
         return 0;
     }
 
