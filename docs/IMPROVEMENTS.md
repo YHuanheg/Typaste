@@ -52,6 +52,16 @@
 
 ---
 
+## 1.7.0 新增
+
+| 项 | 说明 |
+| --- | --- |
+| 自适应输入 | `OUTPUT_ADAPTIVE_IME`：逐字符切换 IME 转换模式（ASCII → alphanumeric，非 ASCII → native），中文段用 Unicode 兜底 |
+| 原样输出 | `OUTPUT_UNICODE`：全部字符走 `KEYEVENTF_UNICODE`，并在打字期间关闭 IME（TSF 输入法会拦截 Unicode 输入） |
+| 引擎重构 | `AutoType()` 改为接收 `AT_OPTIONS`（delay / sound / random / start / output mode / IME window） |
+| 新设置 | `OutputMode`（自动 / 自适应 / 原样），设置界面新增「字符输出」下拉 |
+| 回归测试 | `tools/regress_output.ps1`：自适应模式断言 IME 在 0/1 间切换且文本为 `a中b`；原样模式断言 `abc123` 原样到达 |
+
 ## 1.6.0 改进
 
 | 项 | 说明 |

@@ -42,6 +42,9 @@
 #define IDS_STATUS_STOPPED_FMT              129
 #define IDS_IME_CLOSE                       130
 #define IDS_IME_ALPHANUM                    131
+#define IDS_OUT_AUTO                        132
+#define IDS_OUT_ADAPTIVE                    133
+#define IDS_OUT_UNICODE                     134
 
 #define IDM_SHOW                            200
 #define IDM_SETTINGS                        201
@@ -79,6 +82,7 @@
 #define pshPause                            2023
 #define pshResume                           2024
 #define cmbIme                             2025
+#define cmbOut                              2026
 
 #ifdef APSTUDIO_INVOKED
     #ifndef APSTUDIO_READONLY_SYMBOLS

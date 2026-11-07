@@ -24,6 +24,10 @@ Press the Esc key to stop typing.
 - Global hot-key (Ctrl+V by default)
 - **Input method control**: while typing, the IME is switched to English mode
   (default) or closed, then the previous state is restored
+- **Adaptive typing**: each character gets the IME mode it needs (ASCII -> English,
+  CJK -> the native IME mode)
+- **As-is output**: everything is sent as Unicode input with the IME out of the way,
+  so the text arrives exactly as it is
 - Optional typing sound
 - Four UI languages: English, Japanese, Simplified Chinese, Traditional Chinese
 - High-DPI aware, modern dialog layout, About box, one-click reset to defaults
@@ -49,6 +53,17 @@ While the text is typed, Typaste takes the IME out of the way:
 
 The open state and the conversion mode are saved before the typing and restored
 afterwards, so Chinese punctuation and the full/half width setting come back.
+
+### Character output
+
+| Output | What happens | When to use it |
+| --- | --- | --- |
+| Automatic (default) | ASCII goes through the keyboard, the rest as Unicode input | Balanced speed and compatibility |
+| Adapt the IME per character | The IME is switched for every character: ASCII -> `IME_CMODE_ALPHANUMERIC`, CJK -> `IME_CMODE_NATIVE` | You want the IME to follow the text itself |
+| As is (ignore the IME) | Every character is sent as Unicode input and the IME is closed for the time of the typing | The target is a TSF/UWP editor that would otherwise eat the characters |
+
+The as-is mode is the answer to "type exactly this, whatever the IME is doing":
+the IME is taken out of the loop for the duration of the job and restored after.
 
 ## Pause, Continue and Resume
 

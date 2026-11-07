@@ -18,6 +18,8 @@ License: MIT
 - Resume after a stop: press Esc, then Continue to type the remaining part
 - Adjustable typing/start delay, random interval, hot-key, IME control, sound
 - Input method control: switch the IME to English mode (or close it) while typing,
+- Adaptive typing: switch the IME per character (ASCII -> English, CJK -> native)
+- As-is output: send everything as Unicode input with the IME out of the way
   then restore the previous state
 - Typing speed slider in the settings dialog
 - English / Japanese / Simplified Chinese / Traditional Chinese UI

@@ -4,6 +4,7 @@
 // This file is public domain software.
 #include "Typaste.hpp"
 #include <strsafe.h>
+#include "Ime.hpp"
 
 // How long to wait for the user to release the modifier keys (in milliseconds)
 #define MODIFIER_RELEASE_TIMEOUT 5000
@@ -155,10 +156,29 @@ void SwitchKL(DWORD dwDelay, BOOL bRandom)
 // The number of UTF-16 units typed so far
 volatile LONG g_nTypedChars = 0;
 
+// Switch the IME conversion mode just before a character is sent. ASCII goes
+// through the keyboard, everything else needs the native (IME) mode.
+static void SwitchImeForChar(HWND hwndIme, DWORD *pdwMode, TCHAR ch)
+{
+    if (!hwndIme)
+        return;
+
+    const DWORD dwWant = (ch < 0x80) ? IME_CMODE_ALPHANUMERIC : IME_CMODE_NATIVE;
+    if (*pdwMode == dwWant)
+        return;
+
+    Ime_SetConversionMode(hwndIme, dwWant);
+    *pdwMode = dwWant;
+}
+
 // The auto typing function
-int AutoType(LPCTSTR psz, DWORD dwDelay, LPCTSTR pszSound, BOOL bRandom, int nStart)
+int AutoType(LPCTSTR psz, const AT_OPTIONS& opt)
 {
     const UINT cMaxKL = 10; // Who uses 10 keyboards in a moment?
+
+    const DWORD dwDelay = opt.dwDelay;
+    const BOOL bRandom = opt.bRandom;
+    LPCTSTR pszSound = opt.pszSound;
 
     // Get the list of the keyboard layouts
     HKL ahKLs[cMaxKL];
@@ -168,13 +188,14 @@ int AutoType(LPCTSTR psz, DWORD dwDelay, LPCTSTR pszSound, BOOL bRandom, int nSt
     HKL hOldKL = GetKeyboardLayout(0);
 
     const int cchTotal = lstrlen(psz);
-    if (nStart < 0)
-        nStart = 0;
-    if (nStart > cchTotal)
-        nStart = cchTotal;
+    int nPos = opt.nStart;
+    if (nPos < 0)
+        nPos = 0;
+    if (nPos > cchTotal)
+        nPos = cchTotal;
 
-    int nPos = nStart;
     UINT nSent = 0;
+    DWORD dwImeMode = 0xFFFFFFFF; // unknown: force the first switch
 
     g_nTypedChars = nPos;
 
@@ -185,9 +206,7 @@ int AutoType(LPCTSTR psz, DWORD dwDelay, LPCTSTR pszSound, BOOL bRandom, int nSt
         if (g_bAbortTyping)
             break;
 
-        // Hold here while the user has paused the typing. The pause flag is
-        // checked at a character boundary, so a pause never splits a character
-        // and the next call can continue from exactly this position.
+        // Hold here while the user has paused the typing
         while (g_bPauseTyping)
         {
             if (g_bAbortTyping)
@@ -204,7 +223,8 @@ int AutoType(LPCTSTR psz, DWORD dwDelay, LPCTSTR pszSound, BOOL bRandom, int nSt
 
         const TCHAR ch = psz[nPos];
 
-        // Handle special characters
+        // Handle special characters: these are keys, not characters, in every
+        // output mode
         switch (ch)
         {
         case L'\r': // CR
@@ -236,6 +256,31 @@ int AutoType(LPCTSTR psz, DWORD dwDelay, LPCTSTR pszSound, BOOL bRandom, int nSt
             MySleep(dwDelay, bRandom);
         }
 
+        // How many UTF-16 units this character takes (surrogate pairs)
+        int cchChar = 1;
+        if (IS_HIGH_SURROGATE(WORD(ch)) && psz[nPos + 1] &&
+            IS_LOW_SURROGATE(WORD(psz[nPos + 1])))
+        {
+            cchChar = 2;
+        }
+
+        // The "as is" mode: every character goes through SendInput as Unicode
+        // input, so the keyboard layout and the IME state cannot interfere.
+        if (opt.nOutputMode == OUTPUT_UNICODE)
+        {
+            SendUnicodeText(psz + nPos, cchChar, dwDelay, bRandom);
+            nPos += cchChar;
+            g_nTypedChars = nPos;
+
+            if (dwDelay == 0 && (++nSent % ZERO_DELAY_BATCH) == 0)
+                ::Sleep(1);
+            continue;
+        }
+
+        // The adaptive mode: put the IME into the mode this character needs
+        if (opt.nOutputMode == OUTPUT_ADAPTIVE_IME)
+            SwitchImeForChar(opt.hwndIme, &dwImeMode, ch);
+
         // Translate the character to a virtual key
         SHORT s = -1;
         UINT iKL = 0;
@@ -248,18 +293,10 @@ int AutoType(LPCTSTR psz, DWORD dwDelay, LPCTSTR pszSound, BOOL bRandom, int nSt
 
         if (s == -1)
         {
-            // The keyboard layouts cannot produce this character.
-            // Send it as Unicode input instead of WM_CHAR: that works for CJK,
-            // emoji (surrogate pairs) and any other symbol, and it is not
-            // blocked by UIPI.
-            int cch = 1;
-            if (IS_HIGH_SURROGATE(WORD(ch)) && psz[nPos + 1] &&
-                IS_LOW_SURROGATE(WORD(psz[nPos + 1])))
-            {
-                cch = 2;
-            }
-            SendUnicodeText(psz + nPos, cch, dwDelay, bRandom);
-            nPos += cch;
+            // The keyboard layouts cannot produce this character: send it as
+            // Unicode input instead of WM_CHAR (CJK, emoji, any symbol).
+            SendUnicodeText(psz + nPos, cchChar, dwDelay, bRandom);
+            nPos += cchChar;
         }
         else
         {

@@ -57,6 +57,18 @@ Per-Monitor V2 只负责发 \`WM_DPICHANGED\`，不会替你重排控件。1.3.0
 1.4.0 改为：初始化时把每个子控件的矩形与字体**归一化到 96 DPI**存下来，
 之后每次 DPI 变化都按 \`基准 × dpi / 96\` 重算，误差不累积，且控件类型无关。
 
+### 字符输出模式
+
+| 模式 | 发送方式 | IME 处理 |
+| --- | --- | --- |
+| `OUTPUT_AUTO`（默认） | ASCII 走键盘，其余走 Unicode | 按 `ImeMode` 设置（默认切英文） |
+| `OUTPUT_ADAPTIVE_IME` | 全部走键盘（无法映射时回退 Unicode） | 引擎逐字符切换：ASCII → alphanumeric，非 ASCII → native |
+| `OUTPUT_UNICODE` | 全部走 Unicode（`KEYEVENTF_UNICODE`） | 打字期间关闭 IME，结束后恢复 |
+
+注意：`KEYEVENTF_UNICODE` 的输入仍会经过 TSF 输入法，所以在中文模式下它并不能
+"无视输入法"——UWP 编辑器会把 `a` 变成拼音候选。真正的原样输出必须让 IME
+退出（`IMC_SETOPENSTATUS FALSE`），这也是 `OUTPUT_UNICODE` 关闭 IME 的原因。
+
 ## 输入法控制
 
 打字时如果输入法停在中文模式，目标窗口会弹出候选框、吞掉字符。Typaste 在

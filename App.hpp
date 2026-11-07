@@ -44,6 +44,7 @@ struct APP_SETTINGS
     DWORD dwDelayToStart;                // the delay to start (in milliseconds)
     WORD  wHotKey;                       // MAKEWORD(virtual key, HOTKEYF_*)
     DWORD dwImeMode;                     // IME_CONTROL_* : how the IME is handled
+    DWORD dwOutputMode;                  // OUTPUT_* : how the characters are produced
     BOOL  bRandom;                       // randomize the interval?
     BOOL  bOnlyWhitelist;                // only work in the whitelisted programs?
     tstring_t strSound;                  // the sound file name

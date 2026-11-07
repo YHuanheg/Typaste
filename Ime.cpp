@@ -8,27 +8,6 @@
 #include "Typaste.hpp"
 #include "Ime.hpp"
 
-#ifndef IMC_GETOPENSTATUS
-    #define IMC_GETOPENSTATUS   0x0005
-#endif
-#ifndef IMC_SETOPENSTATUS
-    #define IMC_SETOPENSTATUS   0x0006
-#endif
-#ifndef IMC_GETCONVERSIONMODE
-    #define IMC_GETCONVERSIONMODE 0x0001
-#endif
-#ifndef IMC_SETCONVERSIONMODE
-    #define IMC_SETCONVERSIONMODE 0x0002
-#endif
-
-#ifndef IME_CMODE_ALPHANUMERIC
-    #define IME_CMODE_ALPHANUMERIC 0x0000
-#endif
-#ifndef IME_CMODE_NATIVE
-    #define IME_CMODE_NATIVE 0x0001
-#endif
-#include <cstdio>
-
 BOOL Ime_GetState(HWND hwndTarget, IME_STATE& state)
 {
     ZeroMemory(&state, sizeof(state));
@@ -86,4 +65,11 @@ void Ime_Restore(const IME_STATE& state)
     SendMessage(state.hwndIme, WM_IME_CONTROL, IMC_SETCONVERSIONMODE,
                 (WPARAM)state.dwConversion);
     SendMessage(state.hwndIme, WM_IME_CONTROL, IMC_SETOPENSTATUS, state.bOpen ? TRUE : FALSE);
+}
+
+void Ime_SetConversionMode(HWND hwndIme, DWORD dwMode)
+{
+    if (!hwndIme || !IsWindow(hwndIme))
+        return;
+    SendMessage(hwndIme, WM_IME_CONTROL, IMC_SETCONVERSIONMODE, (WPARAM)dwMode);
 }

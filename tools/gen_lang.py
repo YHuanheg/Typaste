@@ -11,8 +11,8 @@ import os
 import re
 import sys
 
-VERSION = "1.6.0"
-VERSION_TUPLE = "1, 6, 0, 0"
+VERSION = "1.7.0"
+VERSION_TUPLE = "1, 7, 0, 0"
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 TEMPLATE = r'''// Typaste localized resources for @@tag@@
@@ -46,7 +46,7 @@ FONT 9, "@@font@@"
     PUSHBUTTON "@@btn_about@@", btnAbout, 216, 250, 92, 22
 }
 
-IDD_SETTINGS DIALOG 0, 0, 260, 328
+IDD_SETTINGS DIALOG 0, 0, 260, 346
 CAPTION "@@settings_caption@@"
 STYLE DS_CENTER | DS_MODALFRAME | WS_POPUPWINDOW | WS_CAPTION
 FONT 9, "@@font@@"
@@ -72,16 +72,18 @@ FONT 9, "@@font@@"
     PUSHBUTTON "@@browse@@", psh2, 196, 146, 50, 14
     PUSHBUTTON "@@play@@", psh3, 196, 164, 50, 14
 
-    GROUPBOX "@@grp_other@@", grpOther, 7, 193, 246, 96
+    GROUPBOX "@@grp_other@@", grpOther, 7, 193, 246, 114
     AUTOCHECKBOX "@@ime@@", chx1, 14, 208, 140, 14
     COMBOBOX cmbIme, 14, 224, 150, 90, CBS_DROPDOWNLIST | CBS_NOINTEGRALHEIGHT | WS_VSCROLL | WS_TABSTOP
-    LTEXT "@@lbl_language@@", -1, 14, 246, 62, 10
-    COMBOBOX cmb2, 74, 244, 172, 120, CBS_DROPDOWNLIST | CBS_NOINTEGRALHEIGHT | WS_VSCROLL | WS_TABSTOP
-    PUSHBUTTON "@@btn_whitelist@@", btnWhitelist, 14, 262, 130, 16
+    LTEXT "@@lbl_output@@", -1, 14, 246, 62, 10
+    COMBOBOX cmbOut, 74, 244, 172, 100, CBS_DROPDOWNLIST | CBS_NOINTEGRALHEIGHT | WS_VSCROLL | WS_TABSTOP
+    LTEXT "@@lbl_language@@", -1, 14, 264, 62, 10
+    COMBOBOX cmb2, 74, 262, 172, 120, CBS_DROPDOWNLIST | CBS_NOINTEGRALHEIGHT | WS_VSCROLL | WS_TABSTOP
+    PUSHBUTTON "@@btn_whitelist@@", btnWhitelist, 14, 280, 130, 16
 
-    PUSHBUTTON "@@btn_reset@@", btnReset, 7, 300, 74, 16
-    DEFPUSHBUTTON "@@btn_ok@@", IDOK, 104, 300, 68, 16
-    PUSHBUTTON "@@btn_cancel@@", IDCANCEL, 180, 300, 68, 16
+    PUSHBUTTON "@@btn_reset@@", btnReset, 7, 318, 74, 16
+    DEFPUSHBUTTON "@@btn_ok@@", IDOK, 104, 318, 68, 16
+    PUSHBUTTON "@@btn_cancel@@", IDCANCEL, 180, 318, 68, 16
 }
 
 IDD_WHITELIST DIALOG 0, 0, 260, 196
@@ -170,6 +172,9 @@ STRINGTABLE
     IDS_CLIP_EMPTY, "@@s_clipempty@@"
     IDS_IME_CLOSE, "@@s_ime_close@@"
     IDS_IME_ALPHANUM, "@@s_ime_alphanum@@"
+    IDS_OUT_AUTO, "@@s_out_auto@@"
+    IDS_OUT_ADAPTIVE, "@@s_out_adaptive@@"
+    IDS_OUT_UNICODE, "@@s_out_unicode@@"
     IDS_PAUSE, "@@btn_pause@@"
     IDS_CONTINUE, "@@btn_continue@@"
     IDS_RESUME, "@@btn_resume@@"
@@ -233,6 +238,7 @@ LANGS = [
             s_configpath="Settings file: %s",
             s_clipempty="(The clipboard is empty)",
             s_ime_close="Close the IME", s_ime_alphanum="Switch to English mode",
+            lbl_output="&Output:", s_out_auto="Automatic (keyboard + Unicode)", s_out_adaptive="Adapt the IME per character", s_out_unicode="As is (ignore the IME)",
             btn_pause="&Pause", btn_continue="&Resume", btn_resume="Cont&inue",
             s_typingfmt="Typing... %d/%d (Esc stops)",
             s_pausedfmt="Paused %d/%d - press Resume",
@@ -292,6 +298,7 @@ LANGS = [
             s_configpath="設定ファイル: %s",
             s_clipempty="(クリップボードは空です)",
             s_ime_close="IME を閉じる", s_ime_alphanum="英数モードに切り替える",
+            lbl_output="出力(&O):", s_out_auto="自動（キーボード＋Unicode）", s_out_adaptive="文字ごとに IME を切り替え", s_out_unicode="そのまま出力（IME を無視）",
             btn_pause="一時停止(&P)", btn_continue="再開(&R)", btn_resume="続きから(&I)",
             s_typingfmt="入力中... %d/%d (Esc で停止)",
             s_pausedfmt="一時停止中 %d/%d — 「再開」で続行",
@@ -349,6 +356,7 @@ LANGS = [
             s_configpath="设置文件：%s",
             s_clipempty="（剪贴板为空）",
             s_ime_close="关闭输入法", s_ime_alphanum="切到英文模式",
+            lbl_output="字符输出(&O):", s_out_auto="自动（键盘 + Unicode）", s_out_adaptive="按字符切换输入法", s_out_unicode="原样输出（无视输入法）",
             btn_pause="暂停(&P)", btn_continue="继续(&C)", btn_resume="续写(&I)",
             s_typingfmt="正在输入 %d/%d（Esc 停止）",
             s_pausedfmt="已暂停 %d/%d，点“继续”恢复",
@@ -406,6 +414,7 @@ LANGS = [
             s_configpath="設定檔：%s",
             s_clipempty="（剪貼簿為空）",
             s_ime_close="關閉輸入法", s_ime_alphanum="切到英文模式",
+            lbl_output="字元輸出(&O):", s_out_auto="自動（鍵盤 + Unicode）", s_out_adaptive="按字元切換輸入法", s_out_unicode="原樣輸出（無視輸入法）",
             btn_pause="暫停(&P)", btn_continue="繼續(&C)", btn_resume="續寫(&I)",
             s_typingfmt="正在輸入 %d/%d（Esc 停止）",
             s_pausedfmt="已暫停 %d/%d，點「繼續」恢復",

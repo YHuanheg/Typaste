@@ -280,6 +280,7 @@ struct TYPE_JOB
     DWORD dwDelayToStart;
     BOOL bRandom;
     DWORD dwImeMode;
+    DWORD dwOutputMode;
     IME_STATE ime;
     int nStart;
 };
@@ -292,17 +293,33 @@ static DWORD WINAPI TypingThreadProc(LPVOID lpParam)
     MySleep(pJob->dwDelayToStart, pJob->bRandom);
     WaitModifierRelease(pJob->dwDelayToType, pJob->bRandom);
 
-    if (pJob->dwImeMode != IME_CONTROL_OFF && pJob->ime.bValid)
+    // Decide how the IME is handled for this job:
+    //   adaptive -> the engine switches it for every character
+    //   as is    -> the IME has to step aside completely, otherwise a TSF input
+    //               method (UWP editors) still eats the characters
+    int nImeMode = (int)pJob->dwImeMode;
+    if (pJob->dwOutputMode == OUTPUT_ADAPTIVE_IME)
+        nImeMode = IME_CONTROL_OFF;
+    else if (pJob->dwOutputMode == OUTPUT_UNICODE)
+        nImeMode = IME_CONTROL_CLOSE;
+
+    if (nImeMode != IME_CONTROL_OFF && pJob->ime.bValid)
     {
-        Ime_Apply(pJob->ime, (int)pJob->dwImeMode);
+        Ime_Apply(pJob->ime, nImeMode);
         Sleep(300);
     }
 
     // AutoType stops at a character boundary on pause/abort and returns the
     // index it stopped at, which is what "Continue" resumes from.
-    const int nDone = AutoType(pJob->text.c_str(), pJob->dwDelayToType,
-                               pJob->sound.empty() ? NULL : pJob->sound.c_str(),
-                               pJob->bRandom, pJob->nStart);
+    AT_OPTIONS opt;
+    opt.dwDelay = pJob->dwDelayToType;
+    opt.pszSound = pJob->sound.empty() ? NULL : pJob->sound.c_str();
+    opt.bRandom = pJob->bRandom;
+    opt.nStart = pJob->nStart;
+    opt.nOutputMode = (int)pJob->dwOutputMode;
+    opt.hwndIme = pJob->ime.hwndIme;
+
+    const int nDone = AutoType(pJob->text.c_str(), opt);
 
     Ime_Restore(pJob->ime);
     if (pJob->dwImeMode != IME_CONTROL_OFF && pJob->ime.bValid)
@@ -430,6 +447,7 @@ static BOOL StartTyping(HWND hwnd, const tstring_t& strText, const tstring_t& st
     pJob->dwDelayToStart = g_settings.dwDelayToStart;
     pJob->bRandom = g_settings.bRandom;
     pJob->dwImeMode = g_settings.dwImeMode;
+    pJob->dwOutputMode = g_settings.dwOutputMode;
     pJob->ime = imeState;
     pJob->nStart = nStart;
 

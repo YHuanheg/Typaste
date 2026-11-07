@@ -6,6 +6,7 @@
 #include "Dpi.hpp"
 #include "Util.hpp"
 #include "Ime.hpp"
+#include "AutoType.hpp"
 #include <algorithm>
 #include <cwctype>
 #include <vector>
@@ -25,6 +26,7 @@ void Settings_LoadDefaults(void)
     g_settings.dwDelayToStart = 0;
     g_settings.wHotKey = DEFALUT_HOTKEY;
     g_settings.dwImeMode = IME_CONTROL_ALPHANUM;
+    g_settings.dwOutputMode = OUTPUT_AUTO;
     g_settings.bRandom = FALSE;
     g_settings.bOnlyWhitelist = FALSE;
     g_settings.whitelist.clear();
@@ -63,6 +65,9 @@ BOOL Settings_Load(void)
         g_settings.strSound = strValue.empty() ? g_szNone : strValue;
     }
 
+    if (Config_ReadInt(TEXT("OutputMode"), &dwValue) && dwValue <= OUTPUT_UNICODE)
+        g_settings.dwOutputMode = dwValue;
+
     std::vector<tstring_t> list;
     if (Config_ReadWhitelist(list))
     {
@@ -92,6 +97,7 @@ BOOL Settings_Save(void)
     bResult &= Config_WriteInt(TEXT("HotKey"), g_settings.wHotKey);
     bResult &= Config_WriteInt(TEXT("ImeMode"), g_settings.dwImeMode);
     bResult &= Config_WriteInt(TEXT("ControlIME"), g_settings.dwImeMode != IME_CONTROL_OFF);
+    bResult &= Config_WriteInt(TEXT("OutputMode"), g_settings.dwOutputMode);
     bResult &= Config_WriteInt(TEXT("Random"), g_settings.bRandom);
     bResult &= Config_WriteInt(TEXT("OnlyWhitelist"), g_settings.bOnlyWhitelist);
     tstring_t strSound = g_settings.strSound;
@@ -196,6 +202,26 @@ BOOL Settings_IsForegroundWhitelisted(void)
 
 //////////////////////////////////////////////////////////////////////////////
 // The dialogs
+
+// Fill the output mode combo box
+static void Settings_InitOutputMode(HWND hwnd)
+{
+    HWND hCmb = GetDlgItem(hwnd, cmbOut);
+    if (!hCmb)
+        return;
+
+    ComboBox_ResetContent(hCmb);
+
+    const UINT aids[3] = { IDS_OUT_AUTO, IDS_OUT_ADAPTIVE, IDS_OUT_UNICODE };
+    for (int i = 0; i < 3; ++i)
+    {
+        tstring_t str = LoadStr(aids[i]);
+        ComboBox_AddString(hCmb, str.c_str());
+    }
+
+    UINT nSel = (g_settings.dwOutputMode <= OUTPUT_UNICODE) ? g_settings.dwOutputMode : OUTPUT_AUTO;
+    ComboBox_SetCurSel(hCmb, (int)nSel);
+}
 
 // Fill the IME mode combo box and sync the check box
 static void Settings_InitImeMode(HWND hwnd)
@@ -461,6 +487,7 @@ static BOOL Settings_OnInitDialog(HWND hwnd, HWND hwndFocus, LPARAM lParam)
 
     // How the IME is handled while typing
     Settings_InitImeMode(hwnd);
+    Settings_InitOutputMode(hwnd);
 
     // Random interval?
     CheckDlgButton(hwnd, chx2, g_settings.bRandom ? BST_CHECKED : BST_UNCHECKED);
@@ -528,6 +555,10 @@ static void Settings_OnOK(HWND hwnd)
         nLang = TYPASTE_LANG_AUTO;
     if (nLang != Lang_GetSetting())
         Lang_SetSetting(nLang);
+
+    g_settings.dwOutputMode = (DWORD)ComboBox_GetCurSel(GetDlgItem(hwnd, cmbOut));
+    if (g_settings.dwOutputMode > OUTPUT_UNICODE)
+        g_settings.dwOutputMode = OUTPUT_AUTO;
 
     Settings_Save();
     EndDialog(hwnd, IDOK);
